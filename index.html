@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Stock Ledger (Firebase edition)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f5f7;--card:#fff;--ink:#14202b;--mute:#5b6b7a;--line:#dde3e9;--acc:#1f4e79;--gain:#0e7a4f;--loss:#c02a2a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d141b;--card:#151f29;--ink:#e6edf3;--mute:#8b9bab;--line:#263544;--acc:#6fb1e8;--gain:#43c88a;--loss:#ff7b7b}}
+:root[data-theme="dark"]{--bg:#0d141b;--card:#151f29;--ink:#e6edf3;--mute:#8b9bab;--line:#263544;--acc:#6fb1e8;--gain:#43c88a;--loss:#ff7b7b}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.4 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:720px;margin:0 auto;padding:14px 14px 40px}
+h1{font-size:20px;margin:0;font-weight:600}
+h2{font-size:15px;margin:22px 0 8px;font-weight:600}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sync{font-size:12px;color:var(--mute)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;-webkit-overflow-scrolling:touch}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;cursor:pointer}
+.chip.on{background:var(--acc);border-color:var(--acc);color:var(--bg);font-weight:600}
+.chip.add{border-style:dashed;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px}
+.sum{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.k{font-size:12px;color:var(--mute)}
+.v{font-size:19px;font-weight:600}
+.v.big{font-size:24px}
+.pos{color:var(--gain)}.neg{color:var(--loss)}
+.hd{display:flex;justify-content:space-between;align-items:baseline}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.grid div span{display:block}
+.grid b{font-weight:500}
+input,select,textarea,button.go{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+input.price{padding:5px 6px;font-weight:600}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form .full{grid-column:1/-1}
+button.go{background:var(--acc);color:var(--bg);border-color:var(--acc);font-weight:600;cursor:pointer}
+button.ghost{background:none;border:none;color:var(--mute);font:inherit;cursor:pointer;padding:4px 8px}
+.msg{color:var(--loss);font-size:13px;min-height:18px;margin-top:6px}
+.tx{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+.tx:first-child{border-top:none}
+.tag{font-size:12px;font-weight:600;border-radius:4px;padding:1px 6px;margin-right:6px}
+.tag.BUY{background:color-mix(in srgb,var(--gain) 18%,transparent);color:var(--gain)}
+.tag.SELL{background:color-mix(in srgb,var(--loss) 18%,transparent);color:var(--loss)}
+.empty{color:var(--mute);padding:8px 0}
+.acc-row{display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line);cursor:pointer}
+.acc-row:first-child{border-top:none}
+.hide{display:none}
+.tbl{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 8px;text-align:right;white-space:nowrap;border-top:1px solid var(--line)}
+th{color:var(--mute);font-weight:500;border-top:none}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+.tag.SELF{background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--acc)}
+.hbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:22px}
+.hbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:12px 8px;font:inherit;font-weight:600;cursor:pointer;text-align:center}
+.hbtn.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+input:disabled{opacity:1;-webkit-text-fill-color:var(--ink)}
+.shd{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;margin-top:12px;text-align:left}
+.shd span:last-child{white-space:nowrap}
+.sbody{margin-top:2px}
+.modalbg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modalbg.hide{display:none}
+.mbox{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:16px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
+.mbox h3{margin:0 0 6px;font-size:17px}
+.mrow{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;background:var(--bg)}
+.mbtns{display:grid;gap:8px;margin-top:14px}
+.mbtns button{font:inherit;border-radius:8px;padding:11px;cursor:pointer;font-weight:600;border:1px solid var(--acc);background:var(--acc);color:var(--bg)}
+.mbtns button.alt{background:var(--card);color:var(--acc)}
+.mbtns button.ghost{background:none;border-color:var(--line);color:var(--mute)}
+.tag.MEM{background:var(--line);color:var(--mute)}
+.ro input,.ro textarea,.ro select{pointer-events:none;opacity:.75}
+.mbtns.row{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.go.alt{background:var(--card);color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><h1>Stock Ledger</h1><span class="sync" id="sync"></span></div>
+<div class="sync" id="who" style="margin-top:2px"></div>
+<div class="chips" id="chips"></div>
+<div id="addAccBox" class="card hide">
+  <div class="form"><input id="accName" class="full" placeholder="Client name" maxlength="40"><input id="accUser" placeholder="Username" maxlength="40"><input id="accApp" placeholder="Trading app (e.g. AKD Pro)" maxlength="40"><button class="go full" id="accSave">Add account</button></div>
+</div>
+<div id="app"></div>
+<div id="modal" class="modalbg hide"></div>
+</main>
+<script>
+// =====================  FIREBASE SETTINGS: PASTE YOURS HERE  =====================
+const FIREBASE_CONFIG={apiKey:"AIzaSyBnMZXRklpIX9rTw73mi-aJniuH40fa9HU",authDomain:"workbook-65c82.firebaseapp.com",projectId:"workbook-65c82",storageBucket:"workbook-65c82.firebasestorage.app",messagingSenderId:"238726163803",appId:"1:238726163803:web:e069f3f86fbb6f75027e7e"};
+// The creator's email (the owner of this sheet). Lower-case. It must be the SAME email as in firestore.rules.
+const OWNER_EMAIL="rizwankhylji@gmail.com";
+// =================================================================================
+let KEY='stockledger.fb.anon';
+let S={accounts:[],tx:[],prices:{},cash:[],ts:0},view='all',docRef=null,armed=null,saveT=null,delAcc=null,clrAcc=null,hist='',viewing=null,RO=false,MINE=null,OWNREF=null,ROSTER=[],DBH=null;
+const ME={uid:null,email:'',role:'',owner:false,head:false,first:0,pinged:false,seen:false};
+const AUTH={state:'loading',msg:''};
+const FB={auth:null,A:null,fs:null,unsubMember:null};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const gid=()=>Math.random().toString(36).slice(2,9);
+const f=n=>(Math.round(n*100)/100).toLocaleString(undefined,{maximumFractionDigits:2});
+const cls=n=>n>0.004?'pos':n<-0.004?'neg':'';
+const sg=n=>(n>0.004?'+':'')+f(n);
+const MON=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const fd=d=>{if(!d)return '';try{return new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}catch(e){return d}};
+const today=()=>new Date().toISOString().slice(0,10);
+const status=t=>{$('sync').textContent=t};
+
+S.cash=S.cash||[];
+
+function persist(){
+  if(AUTH.state!=='ok'||(viewing&&RO))return;
+  S.ts=Date.now();
+  if(!viewing){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+  clearTimeout(saveT);
+  saveT=setTimeout(push,500);
+}
+function push(){
+  if(AUTH.state!=='ok')return;
+  if(viewing){if(!RO)viewing.ref.update({json:JSON.stringify(S)}).then(()=>status('Saved to '+viewing.name+"'s sheet")).catch(()=>status('Could not save changes to this sheet'));return}
+  if(!OWNREF)return;
+  OWNREF.set({json:JSON.stringify(S),first:ME.first||Date.now(),last:Date.now()}).then(()=>status('Synced')).catch(()=>status('Offline: saved on this device'));
+}
+const sortTx=a=>a.map((t,i)=>[t,i]).sort((x,y)=>(x[0].d||'').localeCompare(y[0].d||'')||x[1]-y[1]).map(x=>x[0]);
+function applyTx(p,t){ // FIFO: sells use the oldest shares first
+  if(t.type==='BUY'){p.lots.push({q:t.qty,r:t.rate});p.qty+=t.qty;p.cost+=t.qty*t.rate;return null}
+  let rem=t.qty,re=0;
+  while(rem>1e-9&&p.lots.length){const l=p.lots[0],u=Math.min(l.q,rem);re+=u*(t.rate-l.r);p.cost-=u*l.r;p.qty-=u;l.q-=u;rem-=u;if(l.q<=1e-9)p.lots.shift()}
+  p.real+=re;return re;
+}
+function compute(acc,txs){
+  const pos={};
+  for(const t of sortTx(txs||S.tx)){
+    if(acc&&acc!=='all'&&t.acc!==acc)continue;
+    const k=t.acc+'|'+t.stock+'|'+(t.src||''),p=pos[k]||(pos[k]={acc:t.acc,stock:t.stock,src:t.src||'',qty:0,cost:0,real:0,lots:[]});
+    applyTx(p,t);
+  }
+  return Object.values(pos);
+}
+function valid(txs){ // no sell may exceed the shares held at that point
+  const q={};
+  for(const t of sortTx(txs)){const k=t.acc+'|'+t.stock+'|'+(t.src||'');q[k]=(q[k]||0)+(t.type==='BUY'?t.qty:-t.qty);if(q[k]<-1e-9)return false}
+  return true;
+}
+function byStock(pos){
+  const m={};
+  for(const p of pos){const mk=p.stock+'|'+p.src,b=m[mk]||(m[mk]={stock:p.stock,src:p.src,qty:0,cost:0,real:0});b.qty+=p.qty;b.cost+=p.cost;b.real+=p.real}
+  return Object.values(m).sort((a,b)=>a.stock.localeCompare(b.stock));
+}
+function totals(rows){
+  let inv=0,val=0,real=0;
+  for(const r of rows){const pr=S.prices[r.stock];inv+=r.cost;val+=(pr!=null&&r.qty>0)?r.qty*pr:r.cost;real+=r.real}
+  return {inv,val,real,unreal:val-inv,total:val-inv+real};
+}
+
+const NUM=['capital','cash','equity','pl'];
+const amt=t=>{t=String(t);const m=t.replace(/,/g,'').match(/\d*\.?\d+/);if(!m)return null;let v=parseFloat(m[0]);const l=t.toLowerCase();
+  if(/\b(mil|million)\b/.test(l))v*=1e6;else if(/\b(lakh|lakhs|lac|lacs)\b/.test(l))v*=1e5;else if(/\b(crore|cr)\b/.test(l))v*=1e7;else if(/\bk\b/.test(l))v*=1e3;
+  if(/loss|negative|^\s*-|\(/.test(l))v=-v;return v};
+const FLD=[['name','Client name'],['user','Username'],['app','Trading app'],['capital','Total capital'],['cash','Free cash'],['equity','Current equity'],['pl','Profit / loss (broker)']];
+const CT={DEPOSIT:1,WITHDRAWAL:-1,CGT:-1,CHARGES:-1,DIVIDEND:1,OTHER:1};
+const CL={DEPOSIT:'Deposit',WITHDRAWAL:'Withdrawal',CGT:'CGT',CHARGES:'Charges / fees',DIVIDEND:'Dividend',OTHER:'Other'};
+const cashCard=()=>{
+  const rows=(S.cash||[]).filter(c=>c.acc===view),tot=k=>rows.filter(c=>c.type===k).reduce((z,c)=>z+c.amt,0);
+  const list=rows.slice().sort((x,y)=>(y.d||'').localeCompare(x.d||''));
+  return `<div class="card"><div class="sum">
+    <div><div class="k">Deposited</div><div class="v">${f(tot('DEPOSIT'))}</div></div>
+    <div><div class="k">Withdrawn</div><div class="v">${f(tot('WITHDRAWAL'))}</div></div>
+    <div><div class="k">CGT paid</div><div class="v">${f(tot('CGT'))}</div></div>
+    <div><div class="k">Charges · Dividends</div><div class="v">${f(tot('CHARGES'))} · ${f(tot('DIVIDEND'))}</div></div></div>
+    <div class="form" style="margin-top:12px"><select id="cType">${Object.keys(CL).map(k=>`<option value="${k}">${CL[k]}</option>`).join('')}</select>
+    <input id="cAmt" inputmode="decimal" placeholder="Amount"><input id="cDate" type="date" value="${today()}"><input id="cNote" placeholder="Note (optional)" maxlength="60">
+    <button class="go full" id="cAdd">Save entry</button></div><div class="msg" id="cmsg"></div>
+    ${list.length?list.map(c=>{const v=c.amt*CT[c.type];return `<div class="tx"><div><b>${CL[c.type]}</b> <span class="${cls(v)}">${sg(v)}</span><div class="k">${fd(c.d)}${c.note?' · '+esc(c.note):''}</div></div><button class="ghost" data-delc="${c.id}">${armed===c.id?'Confirm':'Delete'}</button></div>`}).join(''):'<div class="empty">No entries yet.</div>'}</div>`};
+const DEF={details:1,summary:1,allfig:1,accounts:1,holdings:1,selfh:1,sold:0,prices:0,addtrade:0,paste:0,cash:0};
+let OPEN={};try{OPEN=JSON.parse(localStorage.getItem('stockledger.open')||'{}')||{}}catch(e){}
+const isOpen=k=>k in OPEN?!!OPEN[k]:!!DEF[k];
+const saveOpen=()=>{try{localStorage.setItem('stockledger.open',JSON.stringify(OPEN))}catch(e){}};
+const sec=(k,title,body,right,force)=>{const o=force||isOpen(k);return `<button class="shd" data-sec="${k}"><span>${title}</span><span>${right?right+' ':''}${o?'▴':'▾'}</span></button>`+(o?`<div class="sbody">${body}</div>`:'')};
+const flow=id=>S.tx.reduce((z,t)=>t.acc===id?z+(t.type==='BUY'?-1:1)*t.qty*t.rate:z,0)+(S.cash||[]).reduce((z,c)=>c.acc===id?z+c.amt*CT[c.type]:z,0);
+const figs=a=>{const T=totals(byStock(compute(a.id))),cash=a.cash0!=null?a.cash0+flow(a.id):null;return {cash,eq:cash!=null?cash+T.val:null,pl:T.unreal,val:T.val,inv:T.inv}};
+const migrate=()=>{S.accounts.forEach(a=>{if(a.cash0==null&&a.cash!=null)a.cash0=a.cash-flow(a.id)})};
+const fldHtml=a=>{const F=figs(a);return FLD.map(([k,l])=>{
+  const auto=k==='equity'||k==='pl',lab=k==='equity'?'Current equity (auto)':k==='pl'?'Current P/L (auto)':k==='cash'?'Free cash (auto)':l;
+  const val=k==='cash'?(F.cash!=null?f(F.cash):''):k==='equity'?(F.eq!=null?f(F.eq):''):k==='pl'?sg(F.pl):NUM.includes(k)?(a[k]!=null?f(a[k]):''):(a[k]||'');
+  return `<div><div class="k">${lab}</div><input class="accd" data-f="${k}" ${auto?'disabled':''} ${NUM.includes(k)?'inputmode="decimal"':''} value="${esc(val)}" placeholder="—"></div>`}).join('')};
+const bulkCard=()=>`<div class="card"><div class="form">
+    ${S.accounts.length?`<select id="bAcc" class="full">${S.accounts.map(a=>`<option value="${a.id}" ${view===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select><div class="k full">Only used when the paste has no client name.</div>`:''}
+    <textarea id="bText" class="full" rows="9" placeholder="Paste here, for example:&#10;Client Name: Khuram Shahzad&#10;Username: COAF14701&#10;App: AKD Pro&#10;700 Efert @ 198.28&#10;300 GAL @ 597.99&#10;&#10;Or trades with dates:&#10;Efert buy 500 @ 230 on 1 Sep 2026"></textarea>
+    <input id="bDate" type="date" value="${today()}" class="full"><div class="k full">Date used for lines that have no date. An existing client is updated, a new one is created. Cash lines also work, e.g. Deposit 100000 on 5 Jun 2026, Withdrawal, CGT, Charges, Dividend. Passwords are ignored and never saved. For stocks the client bought themselves, put a line Self-bought: before them (or write self on the line); Managed: switches back.</div>
+    <label class="k full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="bRep" style="width:auto;margin-top:3px"><span>Replace this client's existing trades and cash entries with this paste. Tick it when pasting a full history, so nothing is counted twice.</span></label>
+    <button class="go full" id="bAdd">Add to account</button></div><div class="msg" id="bmsg"></div></div>`;
+function render(){
+  migrate();
+  if(AUTH.state!=='ok'){$('chips').innerHTML='';$('who').innerHTML='';$('app').className='';$('app').innerHTML=authHtml();return}
+  $('who').innerHTML=esc(ME.email)+' · '+(LBL[ME.role]||'')+' <button class="ghost" data-auth="signout">Sign out</button>';
+  const PEND=ROSTER.filter(r=>r.role==='pending').length;
+  $('app').className=RO?'ro':'';
+  if(view==='team'&&(!ME.head||viewing))view='all';
+  if(view!=='all'&&view!=='team'&&!S.accounts.find(a=>a.id===view))view='all';
+  $('chips').innerHTML=`<button class="chip ${view==='all'?'on':''}" data-v="all">All accounts</button>`+
+    `<button class="chip add" id="pasteGo">Paste details</button><button class="chip add" id="addAcc">+ Account</button>`+(ME.head&&!viewing?`<button class="chip ${view==='team'?'on':''}" data-v="team">Team${PEND?' ('+PEND+')':''}</button>`:'')+
+    S.accounts.map(a=>`<button class="chip ${view===a.id?'on':''}" data-v="${a.id}">${esc(a.name)}</button>`).join('');
+  const vb=viewing?`<div class="card" style="border-color:var(--acc)"><b>${esc(viewing.name)}'s sheet</b> · ${RO?'View mode (read-only)':'<b>Edit mode ON</b>'}<div class="mbtns row">${RO?'<button data-edit="on">Enable edit mode</button>':'<button class="alt" data-edit="off">Back to view mode</button>'}<button class="alt" data-back="1">Back to my sheet</button></div></div>`:'';
+  if(view==='team'){$('app').innerHTML=teamHtml();return}
+  if(!S.accounts.length){$('app').innerHTML=vb+'<div class="card empty">Add an account with + Account, or paste trades below starting with Client: Name.</div>'+sec('paste','Paste client details',bulkCard(),'',true);return}
+  const rows=byStock(compute(view)),T=totals(rows),ca=S.accounts.find(a=>a.id===view);
+  let h=vb+`<div style="text-align:right;margin-top:4px"><button class="ghost" id="exAll">Expand all</button><button class="ghost" id="coAll">Collapse all</button></div>`;
+  if(ca)h+=sec('details',esc(ca.name)+' · account details',`<div class="card"><div class="form">${fldHtml(ca)}</div></div>`);
+  h+=sec('summary','Summary',`<div class="card"><div class="sum">
+    <div><div class="k">Current P/L</div><div class="v big ${cls(T.unreal)}">${sg(T.unreal)}</div></div>
+    <div><div class="k">Market value</div><div class="v">${f(T.val)}</div></div>
+    <div><div class="k">Invested (open shares)</div><div class="v">${f(T.inv)}</div></div>
+    <div><div class="k">P/L %</div><div class="v ${cls(T.unreal)}">${T.inv>0?sg(T.unreal/T.inv*100)+'%':'—'}</div></div>
+  </div></div>`,`<span class="${cls(T.unreal)}">${sg(T.unreal)}</span>`);
+  if(view==='all'){
+    const FG=S.accounts.map(figs),sm=k=>k==='capital'?S.accounts.reduce((z,a)=>z+(a.capital||0),0):FG.reduce((z,x)=>z+(x[k]||0),0);
+    h+=sec('allfig','All clients',`<div class="card"><div class="sum"><div><div class="k">Total capital</div><div class="v">${f(sm('capital'))}</div></div><div><div class="k">Free cash</div><div class="v">${f(sm('cash'))}</div></div><div><div class="k">Current equity</div><div class="v">${f(sm('eq'))}</div></div><div><div class="k">Current P/L</div><div class="v ${cls(sm('pl'))}">${sg(sm('pl'))}</div></div></div></div>`);
+    h+=sec('accounts','Accounts ('+S.accounts.length+')','<div class="card">'+S.accounts.map(a=>{const t=totals(byStock(compute(a.id)));
+      return `<div class="acc-row" data-v="${a.id}"><span>${esc(a.name)}<div class="k">${esc([a.user,a.app].filter(Boolean).join(' · '))}</div></span><span>${f(t.val)} <b class="${cls(t.unreal)}">${sg(t.unreal)}</b></span></div>`}).join('')+'</div>');
+  }
+  const hcard=r=>{
+    const pr=S.prices[r.stock],avg=r.qty>0?r.cost/r.qty:0,val=(pr!=null&&r.qty>0)?r.qty*pr:r.cost,un=val-r.cost;
+    return `<div class="card"><div class="hd"><b>${esc(r.stock)}</b><b class="${cls(un)}">${sg(un)}</b></div>
+    <div class="grid"><div><span class="k">Qty</span><b>${f(r.qty)}</b></div><div><span class="k">Avg cost</span><b>${r.qty>0?f(avg):'—'}</b></div>
+    <div><span class="k">Price</span><input class="price" type="number" inputmode="decimal" step="any" data-stock="${esc(r.stock)}" value="${pr??''}" placeholder="Rs"></div>
+    <div><span class="k">Value</span><b>${f(val)}</b></div></div>
+    <div class="k" style="margin-top:8px">Current P/L <span class="${cls(un)}">${sg(un)}</span>${r.cost>0?' ('+sg(un/r.cost*100)+'%)':''}</div></div>`};
+  const live=rows.filter(r=>r.qty>1e-6),soldR=rows.filter(r=>r.qty<=1e-6),mg=live.filter(r=>!r.src),sf=live.filter(r=>r.src);
+  const Tm=totals(mg);
+  h+=sec('holdings','Holdings'+(sf.length?' managed by us':'')+(mg.length?' ('+mg.length+')':''),mg.length?mg.map(hcard).join(''):'<div class="card empty">'+(live.length?'None.':soldR.length?'No stocks held right now.':'No trades yet. Add one below.')+'</div>',mg.length?`<span class="${cls(Tm.unreal)}">${sg(Tm.unreal)}</span>`:'');
+  if(sf.length){const T2=totals(sf);h+=sec('selfh','Self-bought / client requests ('+sf.length+')',sf.map(hcard).join(''),`<span class="${cls(T2.unreal)}">${sg(T2.unreal)}</span>`)}
+  if(soldR.length)h+=sec('sold','Fully sold stocks ('+soldR.length+')','<div class="card">'+soldR.map(r=>{
+    const ts=sortTx(S.tx).filter(t=>t.stock===r.stock&&(t.src||'')===r.src&&(view==='all'||t.acc===view));
+    return `<details style="border-top:1px solid var(--line);padding:8px 0"><summary style="cursor:pointer"><b>${esc(r.stock)}</b>${r.src?' <span class="tag SELF">Self-bought</span>':''}</summary>`+ts.map(t=>{const a=S.accounts.find(x=>x.id===t.acc);return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}${view==='all'&&a?' · '+esc(a.name):''}</span></div><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div>`}).join('')+'</details>'}).join('')+'<div class="k" style="margin-top:6px">Tap a stock to see its trades.</div></div>');
+  if(rows.length)h+=sec('prices','Update prices',`<div class="card"><div class="k">One stock per line, e.g. EFERT 190.5</div><div class="form" style="margin-top:8px"><textarea id="pText" class="full" rows="3" placeholder="EFERT 190.5&#10;HUBC 210"></textarea><button class="go full" id="pAdd">Update prices</button></div><div class="msg" id="pmsg"></div></div>`);
+  const stocks=[...new Set(S.tx.map(t=>t.stock))];
+  h+=sec('addtrade','Add trade',`<div class="card"><div class="form">
+    <select id="fAcc" class="full">${S.accounts.map(a=>`<option value="${a.id}" ${view===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select>
+    <input id="fStock" list="stocks" placeholder="Stock (e.g. A)" autocapitalize="characters"><datalist id="stocks">${stocks.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+    <select id="fType"><option>BUY</option><option>SELL</option></select>
+    <input id="fQty" type="number" inputmode="decimal" placeholder="Quantity"><input id="fRate" type="number" inputmode="decimal" step="any" placeholder="Rate">
+    <select id="fSrc" class="full"><option value="">Managed by us</option><option value="SELF">Self-bought / client request</option></select>
+    <input id="fDate" type="date" value="${today()}" class="full"><button class="go full" id="fAdd">Save trade</button></div><div class="msg" id="msg"></div></div>`);
+  h+=sec('paste','Paste client details',bulkCard());
+  const run={},G={};
+  for(const t of sortTx(S.tx)){
+    const k=t.acc+'|'+t.stock+'|'+(t.src||''),p=run[k]||(run[k]={qty:0,cost:0,real:0,lots:[]}),g=G[k]||(G[k]={acc:t.acc,stock:t.stock,src:t.src||'',rows:[]});
+    const re=applyTx(p,t);
+    g.rows.push({t,held:p.qty,avg:p.qty>0?p.cost/p.qty:0,re});
+    g.held=p.qty;g.avg=p.qty>0?p.cost/p.qty:0;g.real=p.real;
+  }
+  const gl=Object.values(G).filter(g=>(view==='all'||g.acc===view)&&g.held>1e-6).sort((x,y)=>x.stock.localeCompare(y.stock)||x.acc.localeCompare(y.acc));
+  const curHtml=(gl.length?gl.map(g=>{
+    return `<div class="card"><div class="hd"><b>${esc(g.stock)}${g.src?' <span class="tag SELF">Self-bought</span>':''}</b><span class="k">Held ${f(g.held)} · Avg ${g.held>0?f(g.avg):'—'}</span></div>`+
+    g.rows.map(r=>{const t=r.t;return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}</span><div class="k">Amount ${f(t.qty*t.rate)} · Held after ${f(r.held)} · Avg after ${r.held>0?f(r.avg):'—'}</div></div><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div>`}).join('')+'</div>'}).join(''):'<div class="card empty">No stocks held right now.</div>');
+  const ov=[];S.tx.forEach((t,i)=>{if(view==='all'||t.acc===view)ov.push({d:t.d||'',i,t})});(S.cash||[]).forEach((c,i)=>{if(view==='all'||c.acc===view)ov.push({d:c.d||'',i:1e6+i,c})});
+  ov.sort((x,y)=>y.d.localeCompare(x.d)||y.i-x.i);
+  const allHtml='<div class="card">'+(ov.length?ov.map(o=>{
+    const a=S.accounts.find(x=>x.id===(o.t||o.c).acc),an=view==='all'&&a?' · '+esc(a.name):'';
+    if(o.t){const t=o.t;return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span><b>${esc(t.stock)}</b> ${f(t.qty)} @ ${f(t.rate)}<div class="k">${fd(t.d)} · Amount ${f(t.qty*t.rate)}${t.src?' · Self-bought':''}${an}</div></div></div>`}
+    const c=o.c,v=c.amt*CT[c.type];return `<div class="tx"><div><span class="tag SELF">${CL[c.type]}</span><span class="${cls(v)}">${sg(v)}</span><div class="k">${fd(c.d)}${c.note?' · '+esc(c.note):''}${an}</div></div></div>`}).join(''):'<div class="empty">Nothing recorded yet.</div>')+'</div>';
+  h+=`<div class="hbar"><button class="hbtn ${hist==='cur'?'on':''}" data-hist="cur">Current stocks history ${hist==='cur'?'▴':'▾'}</button><button class="hbtn ${hist==='all'?'on':''}" data-hist="all">Total history of all trades ${hist==='all'?'▴':'▾'}</button></div>`+(hist==='cur'?curHtml:hist==='all'?allHtml:'');
+  if(view!=='all')h+=sec('cash','Deposits, withdrawals, CGT and charges',cashCard());
+  if(view!=='all')h+=`<div style="margin-top:18px;text-align:center"><button class="ghost" data-clr="${view}">${clrAcc===view?'Tap again to clear all trades and cash entries':'Clear all trades for this client'}</button><br><button class="ghost" data-delacc="${view}">${delAcc===view?'Tap again to delete this account and its trades':'Delete this account'}</button></div>`;
+  $('app').innerHTML=h;
+}
+
+const HDR=/^(?:client|account)(?:\s*name)?\s*[:\-]\s*(.+)$/i,UREG=/^(?:user\s*name|username|user\s*id|login)\s*[:\-]\s*(.+)$/i,AREG=/^(?:app|application|trading\s*app|platform)\s*[:\-]\s*(.+)$/i;
+const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const toks=x=>String(x||'').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).sort().join('');
+function lev(a,b){const m=a.length,n=b.length,d=Array.from({length:m+1},(_,i)=>[i]);for(let j=1;j<=n;j++)d[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n]}
+const sim=(a,b)=>(!a||!b)?0:1-lev(a,b)/Math.max(a.length,b.length);
+const nameSim=(a,b)=>Math.max(sim(norm(a),norm(b)),sim(toks(a),toks(b)));
+function scanBlocks(text){const bl=[];
+  for(const line of text.split('\n')){const L=line.trim(),hm=L.match(HDR);
+    if(hm){const pr=hm[1].split('|').map(x=>x.trim());bl.push({name:pr[0],user:pr[1]||'',app:pr[2]||''});continue}
+    const cur=bl[bl.length-1],um=L.match(UREG),am=L.match(AREG);
+    if(cur){if(um)cur.user=um[1].trim();if(am)cur.app=am[1].trim()}}
+  return bl}
+function matchClient(b){let best=null;
+  for(const a of S.accounts){
+    const ns=nameSim(b.name,a.name),us=(b.user&&a.user)?sim(norm(b.user),norm(a.user)):null,score=us==null?ns:0.45*ns+0.55*us;
+    const auto=ns>=0.999&&(us==null||us>=0.999);
+    if(auto)return {kind:'auto',a};
+    if(!best||score>best.score)best={a,ns,us,score};
+  }
+  if(best&&(best.us!=null?(best.score>=0.6||best.us>=0.999||best.ns>=0.75):best.ns>=0.75))return {kind:'ask',...best};
+  return {kind:'none'}}
+function ask(html,btns){return new Promise(res=>{const m=$('modal');
+  m.innerHTML=`<div class="mbox">${html}<div class="mbtns">${btns.map((x,i)=>`<button class="${x.cls||'go'}" data-mr="${i}">${x.t}</button>`).join('')}</div></div>`;
+  m.classList.remove('hide');
+  m.onclick=e=>{const b=e.target.closest('[data-mr]');if(!b)return;m.classList.add('hide');m.onclick=null;res(btns[+b.dataset.mr].v)}})}
+async function resolveBlocks(text){
+  const bl=scanBlocks(text),out=[];
+  for(let i=0;i<bl.length;i++){
+    const b=bl[i],m=matchClient(b);
+    if(m.kind==='auto'){out.push({id:m.a.id});continue}
+    if(m.kind==='none'){out.push({});continue}
+    const a=m.a,pct=Math.round(m.score*100),
+      why=(m.us!=null&&m.us>=0.999)?'The username matches exactly, but the name is spelled differently.':(m.ns>=0.999&&m.us!=null)?'The name matches exactly, but the username is different.':m.us!=null?'The name and username are close, but not identical.':'The name is close, but not identical.';
+    const ans=await ask(`<h3>Is this the same client?</h3>${bl.length>1?`<div class="k">Client ${i+1} of ${bl.length} in this paste</div>`:''}
+      <div class="mrow"><div class="k">You pasted</div><b>${esc(b.name)}</b>${b.user?'<div>Username: '+esc(b.user)+'</div>':''}</div>
+      <div class="mrow"><div class="k">Closest client in your sheet · ${pct}% match</div><b>${esc(a.name)}</b>${a.user?'<div>Username: '+esc(a.user)+'</div>':''}</div>
+      <div class="k" style="margin-top:8px">${why}</div>`,
+      [{t:'Yes, add to '+esc(a.name)+'\'s tab',v:'yes'},{t:'No, add as a new client',v:'new',cls:'go alt'},{t:'Cancel paste',v:'cancel',cls:'ghost'}]);
+    if(ans==='cancel')return null;
+    out.push(ans==='yes'?{id:a.id}:{forceNew:true});
+  }
+  return out}
+async function bulkAdd(){
+  const map=await resolveBlocks($('bText').value);
+  if(map===null)return;
+
+    let bi=0,mode='',det=false,acc=$('bAcc')?$('bAcc').value:'';const say=m=>{$('bmsg').textContent=m},newAccs=[],out=[],cashOut=[],bad=[],dflt=$('bDate').value||today();
+    $('bText').value.split('\n').forEach(line=>{
+      const L=line.trim();
+      if(/^(?:self|personal)(?:[\s-]*(?:bought|request|requests|buy|buys|stocks|holdings|purchase|purchases))*\s*[:\-]?\s*$/i.test(L)){mode='SELF';return}
+      if(/^(?:managed|our|company)(?:[\s-]*(?:stocks|holdings|trades|by\s*us))*\s*[:\-]?\s*$/i.test(L)){mode='';return}
+      if(/^password\b/i.test(L))return;
+      const fm=L.match(/^(total\s*capital|capital|free\s*cash|cash|current\s*equity|equity|total\s*profit\s*\/?\s*loss|profit\s*\/?\s*loss|total\s*p\s*\/\s*l|p\s*\/\s*l)\s*[:\-]\s*(.+)$/i);
+      if(fm){const tg=S.accounts.concat(newAccs).find(x=>x.id===acc),k=/capital/i.test(fm[1])?'capital':/cash/i.test(fm[1])?'cash':/equity/i.test(fm[1])?'equity':'pl';
+        if(tg){let v=amt(fm[2]);if(v!=null&&k!=='pl')v=Math.abs(v);if(v!=null){tg[k]=v;if(k==='pl'&&!/loss|profit/i.test(fm[2]))tg._plu=true;if(k==='cash')tg._fc=v;det=true}}return}
+      if(/^number\s*of\s*stocks/i.test(L))return;
+      const um=L.match(/^(?:user\s*name|username|user\s*id|login)\s*[:\-]\s*(.+)$/i),am=L.match(/^(?:app|application|trading\s*app|platform)\s*[:\-]\s*(.+)$/i);
+      if(um||am){const tg=S.accounts.concat(newAccs).find(x=>x.id===acc);if(tg){if(um&&!tg.user)tg.user=um[1].trim();if(am&&!tg.app)tg.app=am[1].trim();det=true}return}
+      const hm=line.trim().match(/^(?:client|account)(?:\s*name)?\s*[:\-]\s*(.+)$/i);
+      if(hm){const pr=hm[1].split('|').map(x=>x.trim()),nm=pr[0],r=map[bi++]||{},all=S.accounts.concat(newAccs);
+        let tg=r.id?all.find(x=>x.id===r.id):r.forceNew?newAccs.find(x=>x.name.toLowerCase()===nm.toLowerCase()):all.find(x=>x.name.toLowerCase()===nm.toLowerCase());
+        if(!tg){tg={id:gid(),name:nm};newAccs.push(tg)}
+        acc=tg.id;mode='';if(pr[1]&&!tg.user)tg.user=pr[1];if(pr[2]&&!tg.app)tg.app=pr[2];det=true;return}
+      let s=line.replace(/\(.*?\)/g,' ').replace(/(\d),(\d)/g,'$1$2'),d=dflt,xd=false,m=s.match(/\d{4}-\d{2}-\d{2}/);
+      if(m){d=m[0];xd=true;s=s.replace(m[0],' ')}
+      else{m=s.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+(\d{4})/);
+        const mi=m?MON.indexOf(m[2].slice(0,3).toLowerCase()):-1;
+        if(mi>=0){xd=true;d=m[3]+'-'+String(mi+1).padStart(2,'0')+'-'+m[1].padStart(2,'0');s=s.replace(m[0],' ')}}
+      s=s.replace(/[@=,:|]/g,' ').trim();
+      if(!s)return;
+      const cm=s.match(/^(deposit|withdrawal|withdraw|cgt|capital\s*gains?(?:\s*tax)?|dividend|charges?|fees?)\b(.*)$/i);
+      if(cm){const cn=cm[2].split(/\s+/).filter(x=>/^\d*\.?\d+$/.test(x)).map(Number),w=cm[1].toLowerCase(),
+          ty=/^dep/.test(w)?'DEPOSIT':/^with/.test(w)?'WITHDRAWAL':/^div/.test(w)?'DIVIDEND':/^(cgt|capital)/.test(w)?'CGT':'CHARGES';
+        if(!acc||!cn.length||!(cn[0]>0))bad.push(line.trim());else cashOut.push({id:gid(),acc,type:ty,amt:cn[0],d,note:'',_x:xd});
+        return}
+      const tk=s.split(/\s+/),nums=tk.filter(x=>/^\d*\.?\d+$/.test(x)).map(Number),
+        ty=tk.find(x=>/^(buy|sell|bought|sold)$/i.test(x)),name=tk.find(x=>/[A-Za-z]/.test(x)&&!/^(buy|sell|bought|sold|on|at|self|personal|self-bought|request|requested)$/i.test(x));
+      if(!acc||!name||nums.length<2||!(nums[0]>0))bad.push(line.trim());
+      else out.push({id:gid(),acc,stock:name.toUpperCase(),type:ty&&/^(sell|sold)$/i.test(ty)?'SELL':'BUY',qty:nums[0],rate:nums[1],d,_x:xd,...((mode||/\b(self|personal)\b/i.test(line))?{src:'SELF'}:{})});
+    });
+    if(bad.length)return say('Could not read: '+bad.join(' / ')+'. Nothing was added.');
+    if(!out.length&&!cashOut.length&&!newAccs.length&&!det)return say('Paste at least one line.');
+    let skipped=0;
+    const rp=$('bRep')&&$('bRep').checked,accs=new Set(out.concat(cashOut).map(o=>o.acc)),
+      baseTx=rp?S.tx.filter(t=>!accs.has(t.acc)):S.tx,baseCash=rp?(S.cash||[]).filter(c=>!accs.has(c.acc)):(S.cash||[]);
+    const fresh=out.filter(o=>{const dup=baseTx.some(t=>(!o._x||t.d===o.d)&&t.acc===o.acc&&t.stock===o.stock&&t.type===o.type&&t.qty===o.qty&&t.rate===o.rate&&(t.src||'')===(o.src||''));if(dup)skipped++;return !dup});
+    fresh.forEach(o=>delete o._x);
+    const freshC=cashOut.filter(o=>{const dup=baseCash.some(c=>(!o._x||c.d===o.d)&&c.acc===o.acc&&c.type===o.type&&c.amt===o.amt);if(dup)skipped++;return !dup});
+    freshC.forEach(o=>delete o._x);
+    const next=baseTx.concat(fresh);
+    if(!valid(next))return say('A sell is larger than the shares held at that date. Nothing was added.');
+    S.accounts=S.accounts.concat(newAccs);if(acc)view=acc;S.tx=next;S.cash=baseCash.concat(freshC);
+    S.accounts.forEach(a=>{if(a._fc!=null){a.cash0=a._fc-flow(a.id);a.cash=a._fc;delete a._fc}if(a._plu){delete a._plu;if(a.equity!=null&&a.cash!=null&&a.pl>0){const c=byStock(compute(a.id)).reduce((z,r)=>z+r.cost,0),dv=a.equity-a.cash-c;if(Math.abs(dv+a.pl)<2)a.pl=dv}}});
+    persist();render();
+    status('Added '+fresh.length+' trade'+(fresh.length===1?'':'s')+(freshC.length?' and '+freshC.length+' cash entr'+(freshC.length===1?'y':'ies'):'')+(skipped?', skipped '+skipped+' already recorded':''));
+  
+}
+
+const fdt=t=>t?new Date(t).toLocaleString(undefined,{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+const LBL={owner:'Creator',head:'Head',contributor:'Contributor',pending:'Pending approval',blocked:'Blocked'};
+let TEAMCNT={},DATA_UNSUBS=[];
+function teamHtml(){
+  const tc={owner:'BUY',head:'SELF',contributor:'MEM',pending:'SELL',blocked:'SELL'};
+  const order=r=>r.role==='pending'?0:1,list=ROSTER.slice().sort((x,y)=>order(x)-order(y)||(y.last||0)-(x.last||0));
+  const pend=ROSTER.filter(r=>r.role==='pending').length;
+  let h=`<div class="card"><b>Team</b> <span class="k">· ${ROSTER.length} ${ROSTER.length===1?'person':'people'}${pend?' · <b>'+pend+' waiting for approval</b>':''}</span>
+    <div class="k" style="margin-top:6px">New people sign up with their email and wait here. Nobody sees any data until you approve them. Don't recognise someone? Tap Reject or Block.</div>
+    <div class="mbtns" style="grid-template-columns:1fr"><button class="alt" data-role="1">What do the roles mean?</button></div></div>`;
+  h+=list.length?list.map(r=>{
+    const me=r.uid===ME.uid,c=TEAMCNT[r.uid]||{a:0,t:0},bt=[],nm=r.name||r.email||('Member '+r.uid.slice(0,6));
+    if(!me&&(r.role==='contributor'||r.role==='head'||r.role==='owner'))bt.push(`<button data-open="${r.uid}">Open</button>`);
+    if(r.role==='pending'){bt.push(`<button data-act="approve" data-uid="${r.uid}">Approve</button>`,`<button class="alt" data-act="reject" data-uid="${r.uid}">Reject</button>`)}
+    else if(!me&&r.role!=='owner'){
+      if(r.role==='blocked')bt.push(`<button data-act="unblock" data-uid="${r.uid}">Unblock</button>`);
+      else{
+        if(ME.owner&&r.role==='contributor')bt.push(`<button class="alt" data-act="head" data-uid="${r.uid}">Make head</button>`);
+        if(ME.owner&&r.role==='head')bt.push(`<button class="alt" data-act="contrib" data-uid="${r.uid}">Make contributor</button>`);
+        if(ME.owner||r.role!=='head')bt.push(`<button class="alt" data-act="block" data-uid="${r.uid}">Block</button>`)}}
+    return `<div class="card"><div class="hd"><b>${esc(nm)}${me?' (you)':''}</b><span class="tag ${tc[r.role]||'MEM'}">${LBL[r.role]||esc(r.role)}</span></div>
+      <div class="k">${esc(r.email)}<br>${r.role==='pending'?'Requested':'First seen'} ${fdt(r.first)} · Last seen ${fdt(r.last)}${(r.role==='pending'||r.role==='blocked')?'':'<br>'+c.a+' client'+(c.a===1?'':'s')+' · '+c.t+' trades'}</div>
+      ${r.role==='owner'?'<div class="k" style="margin-top:6px">Creator of this sheet. Cannot be removed or blocked.</div>':''}
+      ${bt.length?`<div class="mbtns row">${bt.join('')}</div>`:''}</div>`}).join(''):'<div class="card empty">Nobody yet.</div>';
+  return h}
+function roleHelp(){return ask(`<h3>Roles</h3>
+  <div class="mrow"><b>Creator</b><div class="k">The owner of this sheet. Can do everything, and cannot be blocked or removed by anyone else.</div></div>
+  <div class="mrow"><b>Head</b><div class="k">Can approve or reject new people, block contributors, and open teammates' sheets (view mode first, edit mode on request). Only the Creator can make or remove a head.</div></div>
+  <div class="mrow"><b>Contributor</b><div class="k">Can use the sheet and save their own data. Cannot see anyone else's.</div></div>
+  <div class="mrow"><b>Pending / Blocked</b><div class="k">Pending people have signed up and are waiting for approval. Blocked people can sign in but see nothing.</div></div>`,[{t:'Got it',v:'ok'}])}
+async function memberAct(act,uid){
+  const r=ROSTER.find(x=>x.uid===uid);if(!r||uid===ME.uid||r.role==='owner'||!ME.head)return;
+  if(r.role==='head'&&!ME.owner)return;
+  if((act==='head'||act==='contrib')&&!ME.owner)return;
+  const nm=r.name||r.email,map={approve:['contributor','Approve '+nm+'?','They will be a contributor: they can use the sheet and save their own data.'],reject:['blocked','Reject '+nm+'?','They will be blocked and will see no data.'],head:['head','Make '+nm+' a head?','Heads can approve and block people and open teammates\' sheets.'],contrib:['contributor','Make '+nm+' a contributor?','They will lose head privileges.'],block:['blocked','Block '+nm+'?','They will be locked out of the sheet.'],unblock:['contributor','Unblock '+nm+'?','They will be a contributor again.']};
+  const m=map[act];if(!m)return;
+  const ans=await ask(`<h3>${esc(m[1])}</h3><div class="k">${esc(m[2])}</div>`,[{t:'Yes',v:'y'},{t:'Cancel',v:'n',cls:'ghost'}]);
+  if(ans!=='y')return;
+  try{await FB.fs.doc('members/'+uid).update({role:m[0]})}catch(e){status('Could not update: '+(e.code||e.message))}
+}
+async function enterView(uid){
+  if(!FB.fs||!ME.head||viewing)return;
+  const r=ROSTER.find(x=>x.uid===uid)||{},nm=r.name||r.email||'Member '+uid.slice(0,6),ref=FB.fs.doc('team/'+uid);
+  let snap;try{snap=await ref.get()}catch(e){status('Could not open that sheet');return}
+  let d=null;try{d=JSON.parse(snap.data().json)}catch(e){}
+  d=d||{accounts:[],tx:[],prices:{},cash:[],ts:0};d.cash=d.cash||[];
+  MINE=S;S=d;RO=true;view='all';hist='';armed=delAcc=clrAcc=null;
+  viewing={uid,ref,name:nm,unsub:ref.onSnapshot(sn=>{if(!viewing||viewing.uid!==uid||!sn.exists)return;let x=null;try{x=JSON.parse(sn.data().json)}catch(e){}if(x&&x.ts>(S.ts||0)){x.cash=x.cash||[];S=x;render()}},()=>{})};
+  render();window.scrollTo(0,0);
+}
+function leaveView(){
+  if(!viewing)return;
+  clearTimeout(saveT);if(!RO)push();
+  try{viewing.unsub&&viewing.unsub()}catch(e){}
+  S=MINE;MINE=null;viewing=null;RO=false;view='team';hist='';armed=delAcc=clrAcc=null;render();window.scrollTo(0,0);
+}
+async function setEdit(on){
+  if(!viewing)return;
+  if(on){const ans=await ask(`<h3>Enable edit mode?</h3><div class="k">Changes you make will be saved to ${esc(viewing.name)}'s sheet and will appear on their screen.</div>`,[{t:'Yes, enable edit mode',v:'y'},{t:'Stay in view mode',v:'n',cls:'alt'}]);if(ans!=='y')return;RO=false}
+  else{clearTimeout(saveT);push();RO=true}
+  render();
+}
+function onOwn(snap){
+  if(snap.exists){const d=snap.data()||{};let r=null;try{r=JSON.parse(d.json)}catch(e){}
+    ME.first=d.first||ME.first||Date.now();
+    if(r){r.cash=r.cash||[];const tgt=viewing?MINE:S;
+      if(r.ts>(tgt.ts||0)){if(viewing)MINE=r;else{S=r;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}render()}}
+      else if((tgt.ts||0)>r.ts&&!snap.metadata.hasPendingWrites&&!viewing)push()}
+    if(!ME.pinged){ME.pinged=true;OWNREF.update({last:Date.now()}).catch(()=>{})}
+  }else{ME.first=Date.now();OWNREF.set({json:JSON.stringify(viewing?MINE:S),first:ME.first,last:Date.now()}).catch(()=>{})}
+  status('Synced');
+}
+function loadLocal(){
+  KEY='stockledger.fb.'+ME.uid;S={accounts:[],tx:[],prices:{},cash:[],ts:0};
+  try{const l=JSON.parse(localStorage.getItem(KEY)||'null');if(l&&l.accounts)S=l}catch(e){}
+  S.cash=S.cash||[];view='all';hist='';
+}
+function startData(){
+  OWNREF=FB.fs.doc('team/'+ME.uid);ME.pinged=false;
+  DATA_UNSUBS.push(OWNREF.onSnapshot(onOwn,()=>status('Offline: saved on this device')));
+  if(ME.head){
+    DATA_UNSUBS.push(FB.fs.collection('members').onSnapshot(qs=>{
+      ROSTER=qs.docs.map(d=>{const x=d.data()||{};return {uid:d.id,email:x.email||'',name:x.name||'',role:x.role||'pending',first:x.first||0,last:x.last||0}});
+      if(!viewing)render()},()=>{}));
+    DATA_UNSUBS.push(FB.fs.collection('team').onSnapshot(qs=>{
+      TEAMCNT={};qs.docs.forEach(d=>{let a=0,t=0;try{const j=JSON.parse((d.data()||{}).json);a=(j.accounts||[]).length;t=(j.tx||[]).length}catch(e){}TEAMCNT[d.id]={a,t}});
+      if(view==='team'&&!viewing)render()},()=>{}));
+  }
+}
+function stopData(){
+  DATA_UNSUBS.forEach(u=>{try{u()}catch(e){}});DATA_UNSUBS=[];OWNREF=null;ROSTER=[];TEAMCNT={};
+  if(viewing){try{viewing.unsub&&viewing.unsub()}catch(e){}viewing=null;RO=false;MINE=null}
+}
+function onMember(snap){
+  if(!snap.exists){
+    const role=ME.owner?'owner':'pending';
+    FB.fs.doc('members/'+ME.uid).set({email:ME.email,name:(localStorage.getItem('sl.name')||'').trim(),role,first:Date.now(),last:Date.now()})
+      .catch(e=>{AUTH.state='error';AUTH.msg='Could not register your account: '+(e.code||e.message);render()});
+    return}
+  const d=snap.data()||{},prev=AUTH.state,wasHead=ME.head;
+  ME.role=d.role;ME.head=d.role==='owner'||d.role==='head';ME.first=d.first||0;
+  const st=d.role==='blocked'?'blocked':d.role==='pending'?'pending':'ok';
+  if(st==='ok'&&prev!=='ok'){AUTH.state='ok';loadLocal();startData()}
+  else if(st!=='ok'&&prev==='ok'){stopData();AUTH.state=st}
+  else if(st==='ok'&&wasHead!==ME.head){stopData();startData()}
+  else AUTH.state=st;
+  if(st==='ok'&&!ME.seen){ME.seen=true;FB.fs.doc('members/'+ME.uid).update({last:Date.now()}).catch(()=>{})}
+  render();
+}
+function onAuth(u){
+  stopData();if(FB.unsubMember){try{FB.unsubMember()}catch(e){}FB.unsubMember=null}
+  ME.uid=null;ME.email='';ME.role='';ME.head=false;ME.owner=false;ME.seen=false;
+  if(!u){S={accounts:[],tx:[],prices:{},cash:[],ts:0};view='all';KEY='stockledger.fb.anon';AUTH.state='out';render();return}
+  if(!u.emailVerified){AUTH.state='verify';render();return}
+  ME.uid=u.uid;ME.email=(u.email||'').toLowerCase();ME.owner=ME.email===OWNER_EMAIL.toLowerCase();
+  AUTH.state='loading';render();
+  FB.unsubMember=FB.fs.doc('members/'+ME.uid).onSnapshot(onMember,e=>{AUTH.state='error';AUTH.msg='Could not read your account: '+(e.code||e.message);render()});
+}
+function authHtml(){
+  const st=AUTH.state,out='<div class="mbtns"><button class="ghost" data-auth="signout">Sign out</button></div>',m=`<div class="msg" id="amsg">${esc(AUTH.msg||'')}</div>`;
+  if(st==='loading')return '<div class="card empty">Loading…</div>';
+  if(st==='setup')return '<div class="card"><b>Setup needed</b><div class="k" style="margin-top:6px">Open this file in a text editor, paste your Firebase settings and the owner email near the top (where it says PASTE), then upload the file again.</div></div>';
+  if(st==='error')return `<div class="card"><b>Something went wrong</b><div class="k" style="margin-top:6px">${esc(AUTH.msg)}</div>${out}</div>`;
+  if(st==='out')return `<div class="card"><h3 style="margin:0 0 6px">Sign in to Stock Ledger</h3><div class="k">New here? Create an account. The owner must approve you before you can see anything.</div>
+    <div class="form" style="margin-top:10px"><input id="aName" class="full" placeholder="Your name (new accounts)" autocomplete="name"><input id="aEmail" class="full" type="email" placeholder="Email" autocomplete="email"><input id="aPass" class="full" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
+    <button class="go" data-auth="signin">Sign in</button><button class="go alt" data-auth="signup">Create account</button></div>${m}<button class="ghost" data-auth="reset">Forgot password?</button></div>`;
+  if(st==='verify')return `<div class="card"><h3 style="margin:0 0 6px">Verify your email</h3><div class="k">We sent a verification link to your email. Open it, then come back and tap the button below. Check your spam folder if you can't see it.</div>
+    <div class="mbtns"><button data-auth="verified">I've verified</button><button class="alt" data-auth="resend">Resend email</button><button class="ghost" data-auth="signout">Sign out</button></div>${m}</div>`;
+  if(st==='pending')return `<div class="card"><h3 style="margin:0 0 6px">Waiting for approval</h3><div class="k">Your account is created. The owner needs to approve you before you can use the sheet. This page updates by itself once you are approved.</div>${out}</div>`;
+  if(st==='blocked')return `<div class="card"><h3 style="margin:0 0 6px">Access removed</h3><div class="k">The owner has removed your access to this sheet. If you think this is a mistake, ask the owner.</div>${out}</div>`;
+  return ''}
+const errText=e=>{const c=(e&&e.code)||'';return ({'auth/invalid-credential':'Wrong email or password.','auth/wrong-password':'Wrong email or password.','auth/user-not-found':'Wrong email or password.','auth/email-already-in-use':'That email already has an account. Try Sign in.','auth/weak-password':'Password must be at least 6 characters.','auth/invalid-email':'That email address looks wrong.','auth/too-many-requests':'Too many attempts. Wait a few minutes and try again.','auth/network-request-failed':'No internet connection.'})[c]||(e&&e.message)||'Something went wrong.'};
+async function doAuth(kind){
+  const msg=t=>{AUTH.msg=t;const el=$('amsg');if(el)el.textContent=t};
+  try{
+    if(kind==='signout'){await FB.A.signOut(FB.auth);return}
+    if(kind==='resend'){await FB.A.sendEmailVerification(FB.auth.currentUser);return msg('Verification email sent.')}
+    if(kind==='verified'){const u=FB.auth.currentUser;await u.reload();if(!u.emailVerified)return msg('Not verified yet. Open the link in the email first.');await u.getIdToken(true);return onAuth(u)}
+    const email=(($('aEmail')||{}).value||'').trim(),pw=($('aPass')||{}).value||'',nm=(($('aName')||{}).value||'').trim();
+    if(kind==='reset'){if(!email)return msg('Enter your email first.');await FB.A.sendPasswordResetEmail(FB.auth,email);return msg('Password reset email sent.')}
+    if(!email||!pw)return msg('Enter your email and password.');
+    if(kind==='signup'){try{localStorage.setItem('sl.name',nm)}catch(e){}const c=await FB.A.createUserWithEmailAndPassword(FB.auth,email,pw);try{await FB.A.sendEmailVerification(c.user)}catch(e){}}
+    else await FB.A.signInWithEmailAndPassword(FB.auth,email,pw);
+  }catch(e){msg(errText(e))}
+}
+function makeFS(fsM,db){
+  const wrap=s=>({id:s.id,exists:s.exists(),data:()=>s.data(),metadata:s.metadata});
+  return {
+    doc:p=>{const r=fsM.doc(db,p);return {id:r.id,get:async()=>wrap(await fsM.getDoc(r)),set:d=>fsM.setDoc(r,d),update:d=>fsM.updateDoc(r,d),onSnapshot:(f,e)=>fsM.onSnapshot(r,x=>f(wrap(x)),e)}},
+    collection:p=>({onSnapshot:(f,e)=>fsM.onSnapshot(fsM.collection(db,p),qs=>f({docs:qs.docs.map(d=>({id:d.id,data:()=>d.data()}))}),e)})
+  }}
+async function startFirebase(){
+  try{
+    if(/PASTE/.test(JSON.stringify(FIREBASE_CONFIG))||/example\.com$/i.test(OWNER_EMAIL)){AUTH.state='setup';render();return}
+    const B='https://www.gstatic.com/firebasejs/10.12.2/';
+    const [appM,authM,fsM]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);
+    const app=appM.initializeApp(FIREBASE_CONFIG);
+    FB.auth=authM.getAuth(app);FB.A=authM;FB.fs=makeFS(fsM,fsM.getFirestore(app));DBH=FB.fs;
+    authM.onAuthStateChanged(FB.auth,onAuth);
+  }catch(e){AUTH.state='error';AUTH.msg='Could not load Firebase. Check your internet connection and the settings at the top of this file. ('+(e.message||e)+')';render()}
+}
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-v],#addAcc,#accSave,#fAdd,#bAdd,#pAdd,#pasteGo,#cAdd,#exAll,#coAll,[data-sec],[data-hist],[data-open],[data-act],[data-auth],[data-role],[data-edit],[data-back],[data-clr],[data-delc],[data-del],[data-delacc]');
+  if(!c)return;
+  if(RO&&!(c.dataset.v||c.dataset.sec||c.dataset.hist||c.dataset.edit||c.dataset.back||c.dataset.auth||c.id==='exAll'||c.id==='coAll'))return;
+  if(c.dataset.open){enterView(c.dataset.open)}
+  else if(c.dataset.act){memberAct(c.dataset.act,c.dataset.uid)}
+  else if(c.dataset.auth){doAuth(c.dataset.auth)}
+  else if(c.dataset.role){roleHelp()}
+  else if(c.dataset.edit){setEdit(c.dataset.edit==='on')}
+  else if(c.dataset.back){leaveView()}
+  else if(c.dataset.v){view=c.dataset.v;armed=delAcc=clrAcc=null;render();window.scrollTo(0,0)}
+  else if(c.id==='addAcc'){$('addAccBox').classList.toggle('hide');$('accName').focus()}
+  else if(c.id==='accSave'){
+    const n=$('accName').value.trim();if(!n)return;
+    const a={id:gid(),name:n,user:$('accUser').value.trim(),app:$('accApp').value.trim()};S.accounts.push(a);view=a.id;$('accName').value=$('accUser').value=$('accApp').value='';$('addAccBox').classList.add('hide');persist();render();
+  }
+  else if(c.id==='fAdd'){
+    const t={id:gid(),acc:$('fAcc').value,stock:$('fStock').value.trim().toUpperCase(),type:$('fType').value,qty:parseFloat($('fQty').value),rate:parseFloat($('fRate').value),d:$('fDate').value};
+    if($('fSrc').value)t.src='SELF';
+    const say=m=>{$('msg').textContent=m};
+    if(!t.stock||!(t.qty>0)||!(t.rate>=0)||isNaN(t.rate))return say('Enter the stock, a quantity above 0 and a rate.');
+    const next=S.tx.concat(t);
+    if(!valid(next))return say('This sell is more than the shares held in that account.');
+    S.tx=next;persist();render();
+  }
+  else if(c.id==='cAdd'){
+    const ty=$('cType').value;let v=amt($('cAmt').value);
+    if(v==null||v===0)return $('cmsg').textContent='Enter an amount.';
+    if(ty!=='OTHER')v=Math.abs(v);
+    S.cash=(S.cash||[]).concat({id:gid(),acc:view,type:ty,amt:v,d:$('cDate').value||today(),note:$('cNote').value.trim()});persist();render();
+  }
+  else if(c.dataset.delc){
+    if(armed!==c.dataset.delc){armed=c.dataset.delc;render();return}
+    S.cash=(S.cash||[]).filter(x=>x.id!==armed);armed=null;persist();render();
+  }
+  else if(c.id==='pAdd'){
+    let n=0;$('pText').value.split('\n').forEach(l=>{const m=l.replace(/,/g,'').match(/([A-Za-z][A-Za-z0-9&.\-]*)\D+?(\d+\.?\d*)/);if(m){S.prices[m[1].toUpperCase()]=parseFloat(m[2]);n++}});
+    if(!n)return $('pmsg').textContent='Use one stock per line, like EFERT 190.5';
+    persist();render();status('Updated '+n+' price'+(n===1?'':'s'));
+  }
+  else if(c.dataset.hist){hist=hist===c.dataset.hist?'':c.dataset.hist;render()}
+  else if(c.dataset.clr){
+    if(clrAcc!==c.dataset.clr){clrAcc=c.dataset.clr;render();return}
+    S.tx=S.tx.filter(t=>t.acc!==clrAcc);S.cash=(S.cash||[]).filter(x=>x.acc!==clrAcc);clrAcc=null;persist();render();status('Cleared');
+  }
+  else if(c.dataset.sec){const k=c.dataset.sec;OPEN[k]=!isOpen(k);saveOpen();render()}
+  else if(c.id==='exAll'||c.id==='coAll'){Object.keys(DEF).forEach(k=>{OPEN[k]=c.id==='exAll'});saveOpen();render()}
+  else if(c.id==='pasteGo'){OPEN.paste=true;saveOpen();render();const t=$('bText');if(t){t.scrollIntoView({behavior:'smooth',block:'center'});t.focus()}}
+  else if(c.id==='bAdd'){bulkAdd()}
+  else if(c.dataset.del){
+    if(armed!==c.dataset.del){armed=c.dataset.del;render();return}
+    const next=S.tx.filter(t=>t.id!==armed);armed=null;
+    if(!valid(next)){render();$('msg').textContent='Cannot delete: a later sell would exceed the shares held.';return}
+    S.tx=next;persist();render();
+  }
+  else if(c.dataset.delacc){
+    if(delAcc!==c.dataset.delacc){delAcc=c.dataset.delacc;render();return}
+    S.accounts=S.accounts.filter(a=>a.id!==delAcc);S.tx=S.tx.filter(t=>t.acc!==delAcc);S.cash=(S.cash||[]).filter(c=>c.acc!==delAcc);delAcc=null;view='all';persist();render();
+  }
+});
+document.addEventListener('change',e=>{
+  if(RO)return;
+  const d=e.target.closest('input.accd');
+  if(d){const a=S.accounts.find(x=>x.id===view);if(a){const k=d.dataset.f;if(NUM.includes(k)){let v=amt(d.value);if(v!=null&&k!=='pl')v=Math.abs(v);a[k]=v;if(k==='cash'&&v!=null)a.cash0=v-flow(a.id);d.value=v==null?'':f(v)}else{const v=d.value.trim();if(k==='name'){if(!v){d.value=a.name;return}if(S.accounts.some(x=>x.id!==a.id&&x.name.toLowerCase()===v.toLowerCase())){d.value=a.name;status('Another client already has that name');return}}a[k]=v}persist();if(k==='cash'||k==='name')render()}return}
+  const i=e.target.closest('input.price');if(!i)return;
+  const v=parseFloat(i.value);
+  if(isNaN(v))delete S.prices[i.dataset.stock];else S.prices[i.dataset.stock]=v;
+  persist();render();
+});
+
+render();status('');
+startFirebase();
+</script>
+</body>
+</html>
