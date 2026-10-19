@@ -60,6 +60,8 @@ button.ghost:hover{background:var(--line)}
 .tag.SELL{background:color-mix(in srgb,var(--loss) 16%,transparent);color:var(--loss)}
 .tag.SELF{background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc)}
 .tag.MEM{background:var(--line);color:var(--mute)}
+.tag.SET{background:color-mix(in srgb,var(--amber) 20%,transparent);color:var(--amber)}
+.hd>span{display:flex;align-items:center;gap:4px}
 .tag.DUP{background:color-mix(in srgb,var(--amber) 20%,transparent);color:var(--amber)}
 .empty{color:var(--mute);padding:8px 0}
 .acc-row{display:flex;justify-content:space-between;gap:8px;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
@@ -143,6 +145,7 @@ function push(){
 }
 const sortTx=a=>a.map((t,i)=>[t,i]).sort((x,y)=>(x[0].d||'').localeCompare(y[0].d||'')||x[1]-y[1]).map(x=>x[0]);
 function applyTx(p,t){ // FIFO: sells use the oldest shares first
+  if(t.type==='SET'){p.lots=[{q:t.qty,r:t.rate}];p.qty=t.qty;p.cost=t.qty*t.rate;return null}
   if(t.type==='BUY'){p.lots.push({q:t.qty,r:t.rate});p.qty+=t.qty;p.cost+=t.qty*t.rate;return null}
   let rem=t.qty,re=0;
   while(rem>1e-9&&p.lots.length){const l=p.lots[0],u=Math.min(l.q,rem);re+=u*(t.rate-l.r);p.cost-=u*l.r;p.qty-=u;l.q-=u;rem-=u;if(l.q<=1e-9)p.lots.shift()}
@@ -159,7 +162,7 @@ function compute(acc,txs){
 }
 function valid(txs){ // no sell may exceed the shares held at that point
   const q={};
-  for(const t of sortTx(txs)){const k=t.acc+'|'+t.stock+'|'+(t.src||'');q[k]=(q[k]||0)+(t.type==='BUY'?t.qty:-t.qty);if(q[k]<-1e-9)return false}
+  for(const t of sortTx(txs)){const k=t.acc+'|'+t.stock+'|'+(t.src||'');if(t.type==='SET'){q[k]=t.qty;continue}q[k]=(q[k]||0)+(t.type==='BUY'?t.qty:-t.qty);if(q[k]<-1e-9)return false}
   return true;
 }
 function byStock(pos){
@@ -222,7 +225,7 @@ let OPEN={};try{OPEN=JSON.parse(localStorage.getItem('stockledger.open')||'{}')|
 const isOpen=k=>k in OPEN?!!OPEN[k]:!!DEF[k];
 const saveOpen=()=>{try{localStorage.setItem('stockledger.open',JSON.stringify(OPEN))}catch(e){}};
 const sec=(k,title,body,right,force)=>{const o=force||isOpen(k);return `<button class="shd" data-sec="${k}"><span>${title}</span><span>${right?right+' ':''}${o?'▴':'▾'}</span></button>`+(o?`<div class="sbody">${body}</div>`:'')};
-const flow=id=>S.tx.reduce((z,t)=>t.acc===id?z+(t.type==='BUY'?-1:1)*t.qty*t.rate:z,0)+(S.cash||[]).reduce((z,c)=>c.acc===id?z+c.amt*CT[c.type]:z,0);
+const flow=id=>S.tx.reduce((z,t)=>(t.acc===id&&t.type!=='SET')?z+(t.type==='BUY'?-1:1)*t.qty*t.rate:z,0)+(S.cash||[]).reduce((z,c)=>c.acc===id?z+c.amt*CT[c.type]:z,0);
 const figs=a=>{const T=totals(byStock(compute(a.id))),cash=a.cash0!=null?a.cash0+flow(a.id):null;return {cash,eq:cash!=null?cash+T.val:null,pl:T.unreal,val:T.val,inv:T.inv}};
 const migrate=()=>{S.accounts.forEach(a=>{if(a.cash0==null&&a.cash!=null)a.cash0=a.cash-flow(a.id)})};
 const fldHtml=a=>{const F=figs(a);return FLD.map(([k,l])=>{
@@ -268,7 +271,7 @@ function render(){
   if(view==='all')h+=sec('alertset','Profit alert and closing',`<div class="card"><div class="k">Show an alert when an account's Current P/L reaches this percentage of its total equity (free cash plus the value of its shares). Needs the account's Free cash to be set.</div><div class="form" style="margin-top:8px"><div><div class="k">Profit alert at (%)</div><input id="alertPct" inputmode="decimal" value="${thr()}"></div><div><div class="k">Closing around day</div><input id="closeDay" inputmode="numeric" value="${cday()}"></div><div class="full"><div class="k">Closing window: plus or minus (days)</div><input id="closeTol" inputmode="numeric" value="${ctol()}"></div></div></div>`,thr()+'%');
   const hcard=r=>{
     const pr=S.prices[r.stock],avg=r.qty>0?r.cost/r.qty:0,val=(pr!=null&&r.qty>0)?r.qty*pr:r.cost,un=val-r.cost;
-    return `<div class="card hold ${un>0.004?'up':un<-0.004?'down':''}"><div class="hd"><b>${esc(r.stock)}</b><b class="${cls(un)}">${sg(un)}</b></div>
+    return `<div class="card hold ${un>0.004?'up':un<-0.004?'down':''}"><div class="hd"><b>${esc(r.stock)}</b><span><b class="${cls(un)}">${sg(un)}</b>${(view!=='all'&&!RO)?`<button class="ghost" data-eh="${encodeURIComponent(r.stock+'|'+(r.src||''))}">Edit</button>`:''}</span></div>
     <div class="grid"><div><span class="k">Qty</span><b>${f(r.qty)}</b></div><div><span class="k">Avg cost</span><b>${r.qty>0?f(avg):'—'}</b></div>
     <div><span class="k">Price</span><input class="price" type="number" inputmode="decimal" step="any" data-stock="${esc(r.stock)}" value="${pr??''}" placeholder="Rs"></div>
     <div><span class="k">Value</span><b>${f(val)}</b></div></div>
@@ -279,7 +282,7 @@ function render(){
   if(sf.length){const T2=totals(sf);h+=sec('selfh','Self-bought / client requests ('+sf.length+')',sf.map(hcard).join(''),`<span class="${cls(T2.unreal)}">${sg(T2.unreal)}</span>`)}
   if(soldR.length)h+=sec('sold','Fully sold stocks ('+soldR.length+')','<div class="card">'+soldR.map(r=>{
     const ts=sortTx(S.tx).filter(t=>t.stock===r.stock&&(t.src||'')===r.src&&(view==='all'||t.acc===view));
-    return `<details style="border-top:1px solid var(--line);padding:8px 0"><summary style="cursor:pointer"><b>${esc(r.stock)}</b>${r.src?' <span class="tag SELF">Self-bought</span>':''}</summary>`+ts.map(t=>{const a=S.accounts.find(x=>x.id===t.acc);return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}${view==='all'&&a?' · '+esc(a.name):''}</span></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div></div>`}).join('')+'</details>'}).join('')+'<div class="k" style="margin-top:6px">Tap a stock to see its trades.</div></div>');
+    return `<details style="border-top:1px solid var(--line);padding:8px 0"><summary style="cursor:pointer"><b>${esc(r.stock)}</b>${r.src?' <span class="tag SELF">Self-bought</span>':''}</summary>`+ts.map(t=>{const a=S.accounts.find(x=>x.id===t.acc);return `<div class="tx"><div><span class="tag ${t.type}">${tlab(t)}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}${view==='all'&&a?' · '+esc(a.name):''}</span></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div></div>`}).join('')+'</details>'}).join('')+'<div class="k" style="margin-top:6px">Tap a stock to see its trades.</div></div>');
   if(rows.length)h+=sec('prices','Update prices',`<div class="card"><div class="k">${sharedNote()}One stock per line, e.g. EFERT 190.5</div><div class="form" style="margin-top:8px"><textarea id="pText" class="full" rows="3" placeholder="EFERT 190.5&#10;HUBC 210"></textarea><button class="go full" id="pAdd">Update prices</button></div><div class="msg" id="pmsg"></div></div>`);
   const stocks=[...new Set(S.tx.map(t=>t.stock))];
   h+=sec('addtrade','Add trade',`<div class="card"><div class="form">
@@ -300,12 +303,12 @@ function render(){
   const gl=Object.values(G).filter(g=>(view==='all'||g.acc===view)&&g.held>1e-6).sort((x,y)=>x.stock.localeCompare(y.stock)||x.acc.localeCompare(y.acc));
   const curHtml=(gl.length?gl.map(g=>{
     return `<div class="card"><div class="hd"><b>${esc(g.stock)}${g.src?' <span class="tag SELF">Self-bought</span>':''}</b><span class="k">Held ${f(g.held)} · Avg ${g.held>0?f(g.avg):'—'}</span></div>`+
-    g.rows.map(r=>{const t=r.t;return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}</span><div class="k">Amount ${f(t.qty*t.rate)} · Held after ${f(r.held)} · Avg after ${r.held>0?f(r.avg):'—'}</div></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div></div>`}).join('')+'</div>'}).join(''):'<div class="card empty">No stocks held right now.</div>');
+    g.rows.map(r=>{const t=r.t;return `<div class="tx"><div><span class="tag ${t.type}">${tlab(t)}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}</span><div class="k">Amount ${f(t.qty*t.rate)} · Held after ${f(r.held)} · Avg after ${r.held>0?f(r.avg):'—'}</div></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div></div>`}).join('')+'</div>'}).join(''):'<div class="card empty">No stocks held right now.</div>');
   const ov=[];S.tx.forEach((t,i)=>{if(view==='all'||t.acc===view)ov.push({d:t.d||'',i,t})});(S.cash||[]).forEach((c,i)=>{if(view==='all'||c.acc===view)ov.push({d:c.d||'',i:1e6+i,c})});
   ov.sort((x,y)=>y.d.localeCompare(x.d)||y.i-x.i);
   const allHtml='<div class="card">'+(ov.length?ov.map(o=>{
     const a=S.accounts.find(x=>x.id===(o.t||o.c).acc),an=view==='all'&&a?' · '+esc(a.name):'';
-    if(o.t){const t=o.t;return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}<b>${esc(t.stock)}</b> ${f(t.qty)} @ ${f(t.rate)}<div class="k">${fd(t.d)} · Amount ${f(t.qty*t.rate)}${t.src?' · Self-bought':''}${an}</div></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button></div></div>`}
+    if(o.t){const t=o.t;return `<div class="tx"><div><span class="tag ${t.type}">${tlab(t)}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}<b>${esc(t.stock)}</b> ${f(t.qty)} @ ${f(t.rate)}<div class="k">${fd(t.d)} · Amount ${f(t.qty*t.rate)}${t.src?' · Self-bought':''}${an}</div></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button></div></div>`}
     const c=o.c,v=c.amt*CT[c.type];return `<div class="tx"><div><span class="tag SELF">${CL[c.type]}</span><span class="${cls(v)}">${sg(v)}</span><div class="k">${fd(c.d)}${c.note?' · '+esc(c.note):''}${an}</div></div><div class="act"><button class="ghost" data-ecash="${c.id}">Edit</button></div></div>`}).join(''):'<div class="empty">Nothing recorded yet.</div>')+'</div>';
   h+=`<div class="hbar"><button class="hbtn ${hist==='cur'?'on':''}" data-hist="cur">Current stocks history ${hist==='cur'?'▴':'▾'}</button><button class="hbtn ${hist==='all'?'on':''}" data-hist="all">Total history of all trades ${hist==='all'?'▴':'▾'}</button></div>`+(hist==='cur'?curHtml:hist==='all'?allHtml:'');
   if(view!=='all')h+=sec('cash','Deposits, withdrawals, CGT and charges',cashCard());
@@ -412,6 +415,7 @@ async function bulkAdd(){
   
 }
 
+const tlab=t=>t.type==='SET'?'ADJUST':t.type;
 const fdt=t=>t?new Date(t).toLocaleString(undefined,{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
 const LBL={owner:'Creator',head:'Head',contributor:'Contributor',pending:'Pending approval',blocked:'Blocked'};
 let TEAMCNT={},DATA_UNSUBS=[];
@@ -496,6 +500,32 @@ function gaugeHtml(a){
   if(F.eq==null||!(F.eq>0))return '<div class="k" style="margin-top:12px">Set Free cash in the account details to see progress towards the profit alert.</div>';
   const p=F.pl/F.eq*100,hit=p>=thr(),fill=p<=0?0:Math.min(100,p/thr()*100);
   return `<div class="gauge"><i class="${hit?'hit':''}" style="width:${fill}%"></i></div><div class="k" style="margin-top:6px">${hit?'Profit alert level reached':'Progress to the '+thr()+'% profit alert'} · ${p.toFixed(1)}% of total equity</div>`}
+async function editHolding(code){
+  if(view==='all'||(viewing&&RO))return;
+  const [stock,src]=decodeURIComponent(code).split('|');
+  const pos=compute(view).find(p=>p.stock===stock&&(p.src||'')===src);if(!pos)return;
+  const qty0=pos.qty,avg0=pos.qty>0?pos.cost/pos.qty:0;
+  let v={name:stock,qty:Math.round(qty0*1e6)/1e6,avg:Math.round(avg0*1e4)/1e4},msg='';
+  for(;;){
+    const ans=await ask(`<h3>Edit holding</h3><div class="msg" style="margin:0 0 6px">${esc(msg)}</div><div class="form">
+      <div class="full"><div class="k">Stock name</div><input id="ehName" value="${esc(v.name)}" autocapitalize="characters"></div>
+      <div><div class="k">Quantity</div><input id="ehQty" inputmode="decimal" value="${esc(v.qty)}"></div>
+      <div><div class="k">Average price</div><input id="ehAvg" inputmode="decimal" value="${esc(v.avg)}"></div>
+      <div class="k full">Changing the quantity or average price records an adjustment in the history and does not touch cash. Changing the name renames every trade of this stock for this client.</div></div>`,
+      [{t:'Save changes',v:'save'},{t:'Cancel',v:'x',cls:'ghost'}]);
+    if(ans!=='save')return;
+    const name=$('ehName').value.trim().toUpperCase(),q=parseFloat(String($('ehQty').value).replace(/,/g,'')),a=parseFloat(String($('ehAvg').value).replace(/,/g,''));
+    v={name,qty:isNaN(q)?$('ehQty').value:q,avg:isNaN(a)?$('ehAvg').value:a};
+    if(!name){msg='Enter the stock name.';continue}
+    if(isNaN(q)||q<0){msg='Enter a valid quantity.';continue}
+    if(isNaN(a)||a<0){msg='Enter a valid average price.';continue}
+    let next=S.tx.slice();
+    if(name!==stock)next=next.map(x=>(x.acc===view&&x.stock===stock&&(x.src||'')===src)?{...x,stock:name}:x);
+    if(Math.abs(q-qty0)>1e-9||Math.abs(a-avg0)>5e-5)next.push({id:gid(),acc:view,stock:name,type:'SET',qty:q,rate:a,d:td(),src:src||undefined});
+    if(!valid(next)){msg='This change would make an existing sell larger than the shares held.';continue}
+    S.tx=next;
+    if(name!==stock&&S.prices[name]==null&&S.prices[stock]!=null){S.prices[name]=S.prices[stock];S.priceT=S.priceT||{};S.priceT[name]=Date.now()}
+    persist();render();status('Holding updated');return}}
 async function editTrade(id){
   const t0=S.tx.find(x=>x.id===id);if(!t0||(viewing&&RO))return;
   let v={acc:t0.acc,stock:t0.stock,type:t0.type,qty:t0.qty,rate:t0.rate,d:t0.d||td(),src:t0.src||'',all:false},msg='';
@@ -504,7 +534,7 @@ async function editTrade(id){
     const ans=await ask(`<h3>Edit trade</h3><div class="msg" style="margin:0 0 6px">${esc(msg)}</div><div class="form">
       <div class="full"><div class="k">Client</div><select id="etAcc">${accOpts}</select></div>
       <div><div class="k">Stock</div><input id="etStock" value="${esc(v.stock)}" autocapitalize="characters"></div>
-      <div><div class="k">Type</div><select id="etType"><option ${v.type==='BUY'?'selected':''}>BUY</option><option ${v.type==='SELL'?'selected':''}>SELL</option></select></div>
+      <div><div class="k">Type</div><select id="etType"><option ${v.type==='BUY'?'selected':''}>BUY</option><option ${v.type==='SELL'?'selected':''}>SELL</option><option value="SET" ${v.type==='SET'?'selected':''}>ADJUST</option></select></div>
       <div><div class="k">Quantity</div><input id="etQty" inputmode="decimal" value="${esc(v.qty)}"></div>
       <div><div class="k">Rate</div><input id="etRate" inputmode="decimal" value="${esc(v.rate)}"></div>
       <div><div class="k">Date</div><input id="etDate" type="date" value="${esc(v.d)}"></div>
@@ -638,12 +668,13 @@ async function startFirebase(){
   }catch(e){AUTH.state='error';AUTH.msg='Could not load Firebase. Check your internet connection and the settings at the top of this file. ('+(e.message||e)+')';render()}
 }
 document.addEventListener('click',e=>{
-  const c=e.target.closest('[data-v],#addAcc,#accSave,#fAdd,#bAdd,#pAdd,#pasteGo,#cAdd,#exAll,#coAll,[data-sec],[data-hist],[data-open],[data-act],[data-auth],[data-etx],[data-ecash],[data-dism],[data-dismc],[data-role],[data-edit],[data-back],[data-clr],[data-delc],[data-del],[data-delacc]');
+  const c=e.target.closest('[data-v],#addAcc,#accSave,#fAdd,#bAdd,#pAdd,#pasteGo,#cAdd,#exAll,#coAll,[data-sec],[data-hist],[data-open],[data-act],[data-auth],[data-eh],[data-etx],[data-ecash],[data-dism],[data-dismc],[data-role],[data-edit],[data-back],[data-clr],[data-delc],[data-del],[data-delacc]');
   if(!c)return;
   if(RO&&!(c.dataset.v||c.dataset.sec||c.dataset.hist||c.dataset.edit||c.dataset.back||c.dataset.auth||c.id==='exAll'||c.id==='coAll'))return;
   if(c.dataset.open){enterView(c.dataset.open)}
   else if(c.dataset.act){memberAct(c.dataset.act,c.dataset.uid)}
   else if(c.dataset.auth){doAuth(c.dataset.auth)}
+  else if(c.dataset.eh){editHolding(c.dataset.eh)}
   else if(c.dataset.etx){editTrade(c.dataset.etx)}
   else if(c.dataset.ecash){editCash(c.dataset.ecash)}
   else if(c.dataset.dism){snoozeAsk(c.dataset.dism)}
