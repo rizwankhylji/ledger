@@ -5,48 +5,64 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Stock Ledger (Firebase edition)</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Newsreader:wght@500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f3f5f7;--card:#fff;--ink:#14202b;--mute:#5b6b7a;--line:#dde3e9;--acc:#1f4e79;--gain:#0e7a4f;--loss:#c02a2a;
+:root{--bg:#f1f4ef;--card:#fbfcfa;--ink:#14211c;--mute:#5d6e66;--line:#d9e0d8;--acc:#0b5d4b;--gain:#0f7a4f;--loss:#b3362b;--amber:#a8650b;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d141b;--card:#151f29;--ink:#e6edf3;--mute:#8b9bab;--line:#263544;--acc:#6fb1e8;--gain:#43c88a;--loss:#ff7b7b}}
-:root[data-theme="dark"]{--bg:#0d141b;--card:#151f29;--ink:#e6edf3;--mute:#8b9bab;--line:#263544;--acc:#6fb1e8;--gain:#43c88a;--loss:#ff7b7b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1714;--card:#15221d;--ink:#e6eee8;--mute:#8da095;--line:#233630;--acc:#5fcfae;--gain:#4cc98f;--loss:#ff8174;--amber:#e0a04a}}
+:root[data-theme="dark"]{--bg:#0e1714;--card:#15221d;--ink:#e6eee8;--mute:#8da095;--line:#233630;--acc:#5fcfae;--gain:#4cc98f;--loss:#ff8174;--amber:#e0a04a}
 *{box-sizing:border-box}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.4 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
-main{max-width:720px;margin:0 auto;padding:14px 14px 40px}
-h1{font-size:20px;margin:0;font-weight:600}
-h2{font-size:15px;margin:22px 0 8px;font-weight:600}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 "Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:720px;margin:0 auto;padding:18px 14px 56px}
+h1{font:600 28px/1.05 "Newsreader",Georgia,serif;margin:0;letter-spacing:-.01em}
+h2{font-size:15px;margin:22px 0 8px;font-weight:700}
+h3{margin:0 0 6px;font:600 20px/1.2 "Newsreader",Georgia,serif}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .sync{font-size:12px;color:var(--mute)}
-.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;-webkit-overflow-scrolling:touch}
-.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;cursor:pointer}
-.chip.on{background:var(--acc);border-color:var(--acc);color:var(--bg);font-weight:600}
-.chip.add{border-style:dashed;color:var(--mute)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px}
-.sum{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.k{font-size:12px;color:var(--mute)}
-.v{font-size:19px;font-weight:600}
-.v.big{font-size:24px}
+#who{font-size:12.5px;color:var(--mute);margin-top:4px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:14px 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 15px;min-height:38px;font:600 14px/1 "Manrope",system-ui,sans-serif;cursor:pointer}
+.chip.on{background:var(--acc);border-color:var(--acc);color:var(--bg)}
+.chip.add{border-style:dashed;color:var(--mute);font-weight:500;background:transparent}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:10px}
+.hold{border-left:5px solid var(--line)}
+.hold.up{border-left-color:var(--gain)}
+.hold.down{border-left-color:var(--loss)}
+.hold .hd>b:first-child{font:600 21px/1.1 "Newsreader",Georgia,serif}
+.sum{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.k{font-size:12.5px;color:var(--mute)}
+.v{font-size:19px;font-weight:700}
+.v.big{font-size:32px;line-height:1.1;letter-spacing:-.01em}
 .pos{color:var(--gain)}.neg{color:var(--loss)}
-.hd{display:flex;justify-content:space-between;align-items:baseline}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.gauge{height:8px;border-radius:99px;background:var(--line);margin-top:14px;overflow:hidden}
+.gauge i{display:block;height:100%;background:var(--amber);border-radius:99px}
+.gauge i.hit{background:var(--gain)}
+.hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
 .grid div span{display:block}
-.grid b{font-weight:500}
-input,select,textarea,button.go{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
-input.price{padding:5px 6px;font-weight:600}
+.grid b{font-weight:600}
+input,select,textarea,button.go{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 11px;width:100%;min-width:0}
+input.price{padding:6px 8px;font-weight:700}
 .form{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .form .full{grid-column:1/-1}
-button.go{background:var(--acc);color:var(--bg);border-color:var(--acc);font-weight:600;cursor:pointer}
-button.ghost{background:none;border:none;color:var(--mute);font:inherit;cursor:pointer;padding:4px 8px}
+button.go{background:var(--acc);color:var(--bg);border-color:var(--acc);font-weight:700;cursor:pointer;min-height:44px}
+button.ghost{background:none;border:none;color:var(--mute);font:600 13px "Manrope",system-ui,sans-serif;cursor:pointer;padding:6px 8px;border-radius:8px}
+button.ghost:hover{background:var(--line)}
 .msg{color:var(--loss);font-size:13px;min-height:18px;margin-top:6px}
-.tx{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+.tx{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
 .tx:first-child{border-top:none}
-.tag{font-size:12px;font-weight:600;border-radius:4px;padding:1px 6px;margin-right:6px}
-.tag.BUY{background:color-mix(in srgb,var(--gain) 18%,transparent);color:var(--gain)}
-.tag.SELL{background:color-mix(in srgb,var(--loss) 18%,transparent);color:var(--loss)}
+.act{display:flex;gap:0;flex:none}
+.tag{font-size:12px;font-weight:700;border-radius:6px;padding:2px 7px;margin-right:6px}
+.tag.BUY{background:color-mix(in srgb,var(--gain) 16%,transparent);color:var(--gain)}
+.tag.SELL{background:color-mix(in srgb,var(--loss) 16%,transparent);color:var(--loss)}
+.tag.SELF{background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc)}
+.tag.MEM{background:var(--line);color:var(--mute)}
+.tag.DUP{background:color-mix(in srgb,var(--amber) 20%,transparent);color:var(--amber)}
 .empty{color:var(--mute);padding:8px 0}
-.acc-row{display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line);cursor:pointer}
+.acc-row{display:flex;justify-content:space-between;gap:8px;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
 .acc-row:first-child{border-top:none}
 .hide{display:none}
 .tbl{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -54,27 +70,26 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{padding:7px 8px;text-align:right;white-space:nowrap;border-top:1px solid var(--line)}
 th{color:var(--mute);font-weight:500;border-top:none}
 th:first-child,td:first-child,th.l,td.l{text-align:left}
-.tag.SELF{background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--acc)}
-.hbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:22px}
-.hbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:12px 8px;font:inherit;font-weight:600;cursor:pointer;text-align:center}
+.hbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:24px}
+.hbtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:13px 8px;font:700 14px "Manrope",system-ui,sans-serif;cursor:pointer;text-align:center}
 .hbtn.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
 input:disabled{opacity:1;-webkit-text-fill-color:var(--ink)}
-.shd{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;margin-top:12px;text-align:left}
-.shd span:last-child{white-space:nowrap}
+.shd{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:none;border:none;border-bottom:1px solid var(--line);border-radius:0;padding:14px 2px 10px;font:600 18px/1.2 "Newsreader",Georgia,serif;color:var(--ink);cursor:pointer;margin-top:18px;text-align:left}
+.shd span:last-child{font:700 14px "Manrope",system-ui,sans-serif;white-space:nowrap;color:var(--mute)}
 .sbody{margin-top:2px}
-.modalbg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modalbg{position:fixed;inset:0;background:rgba(8,16,13,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
 .modalbg.hide{display:none}
-.mbox{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:16px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
-.mbox h3{margin:0 0 6px;font-size:17px}
-.mrow{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;background:var(--bg)}
+.mbox{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:20px;padding:18px;width:100%;max-width:440px;max-height:90vh;overflow:auto}
+.mrow{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px;background:var(--bg)}
 .mbtns{display:grid;gap:8px;margin-top:14px}
-.mbtns button{font:inherit;border-radius:8px;padding:11px;cursor:pointer;font-weight:600;border:1px solid var(--acc);background:var(--acc);color:var(--bg)}
+.mbtns button{font:700 14px "Manrope",system-ui,sans-serif;border-radius:10px;padding:12px;cursor:pointer;border:1px solid var(--acc);background:var(--acc);color:var(--bg)}
 .mbtns button.alt{background:var(--card);color:var(--acc)}
 .mbtns button.ghost{background:none;border-color:var(--line);color:var(--mute)}
-.tag.MEM{background:var(--line);color:var(--mute)}
-.ro input,.ro textarea,.ro select{pointer-events:none;opacity:.75}
 .mbtns.row{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.ro input,.ro textarea,.ro select{pointer-events:none;opacity:.75}
 .go.alt{background:var(--card);color:var(--acc)}
+.alert{border-color:var(--gain);background:color-mix(in srgb,var(--gain) 9%,var(--card))}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
@@ -99,6 +114,7 @@ let S={accounts:[],tx:[],prices:{},cash:[],ts:0},view='all',docRef=null,armed=nu
 const ME={uid:null,email:'',role:'',owner:false,head:false,first:0,pinged:false,seen:false};
 const AUTH={state:'loading',msg:''};
 const FB={auth:null,A:null,fs:null,unsubMember:null};
+let SHARED={};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const gid=()=>Math.random().toString(36).slice(2,9);
@@ -161,7 +177,7 @@ const NUM=['capital','cash','equity','pl'];
 const amt=t=>{t=String(t);const m=t.replace(/,/g,'').match(/\d*\.?\d+/);if(!m)return null;let v=parseFloat(m[0]);const l=t.toLowerCase();
   if(/\b(mil|million)\b/.test(l))v*=1e6;else if(/\b(lakh|lakhs|lac|lacs)\b/.test(l))v*=1e5;else if(/\b(crore|cr)\b/.test(l))v*=1e7;else if(/\bk\b/.test(l))v*=1e3;
   if(/loss|negative|^\s*-|\(/.test(l))v=-v;return v};
-const FLD=[['name','Client name'],['user','Username'],['app','Trading app'],['capital','Total capital'],['cash','Free cash'],['equity','Current equity'],['pl','Profit / loss (broker)']];
+const FLD=[['name','Client name'],['user','Username'],['app','Trading app'],['start','Account start date'],['capital','Total capital'],['cash','Free cash'],['equity','Current equity'],['pl','Profit / loss (broker)']];
 const CT={DEPOSIT:1,WITHDRAWAL:-1,CGT:-1,CHARGES:-1,DIVIDEND:1,OTHER:1};
 const CL={DEPOSIT:'Deposit',WITHDRAWAL:'Withdrawal',CGT:'CGT',CHARGES:'Charges / fees',DIVIDEND:'Dividend',OTHER:'Other'};
 const cashCard=()=>{
@@ -175,8 +191,33 @@ const cashCard=()=>{
     <div class="form" style="margin-top:12px"><select id="cType">${Object.keys(CL).map(k=>`<option value="${k}">${CL[k]}</option>`).join('')}</select>
     <input id="cAmt" inputmode="decimal" placeholder="Amount"><input id="cDate" type="date" value="${today()}"><input id="cNote" placeholder="Note (optional)" maxlength="60">
     <button class="go full" id="cAdd">Save entry</button></div><div class="msg" id="cmsg"></div>
-    ${list.length?list.map(c=>{const v=c.amt*CT[c.type];return `<div class="tx"><div><b>${CL[c.type]}</b> <span class="${cls(v)}">${sg(v)}</span><div class="k">${fd(c.d)}${c.note?' · '+esc(c.note):''}</div></div><button class="ghost" data-delc="${c.id}">${armed===c.id?'Confirm':'Delete'}</button></div>`}).join(''):'<div class="empty">No entries yet.</div>'}</div>`};
-const DEF={details:1,summary:1,allfig:1,accounts:1,holdings:1,selfh:1,sold:0,prices:0,addtrade:0,paste:0,cash:0};
+    ${list.length?list.map(c=>{const v=c.amt*CT[c.type];return `<div class="tx"><div><b>${CL[c.type]}</b> <span class="${cls(v)}">${sg(v)}</span><div class="k">${fd(c.d)}${c.note?' · '+esc(c.note):''}</div></div><div class="act"><button class="ghost" data-ecash="${c.id}">Edit</button><button class="ghost" data-delc="${c.id}">${armed===c.id?'Confirm':'Delete'}</button></div></div>`}).join(''):'<div class="empty">No entries yet.</div>'}</div>`};
+const thr=()=>(S.alertPct!=null&&!isNaN(S.alertPct))?S.alertPct:3;
+const snoozed=id=>((S.snooze||{})[id]||0)>Date.now();
+const td=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const addDays=(iso,n)=>{const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const dayDiff=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5);
+const cday=()=>(S.closeDay!=null&&!isNaN(S.closeDay))?S.closeDay:30;
+const ctol=()=>(S.closeTol!=null&&!isNaN(S.closeTol))?S.closeTol:3;
+function autoStart(a){let m='';S.tx.forEach(t=>{if(t.acc===a.id&&t.d&&(!m||t.d<m))m=t.d});(S.cash||[]).forEach(c=>{if(c.acc===a.id&&c.d&&(!m||c.d<m))m=c.d});return m}
+function alertList(){
+  const t=td();
+  return S.accounts.map(a=>{const F=figs(a),p=(F.eq!=null&&F.eq>0)?F.pl/F.eq*100:null,st=a.start||autoStart(a),days=st?dayDiff(st,t):null;
+    return {a,p,pl:F.pl,eq:F.eq,days,close:days!=null&&days>=cday()-ctol()&&days<=cday()+ctol(),winEnd:st?addDays(st,cday()+ctol()):null}})
+   .filter(x=>x.p!=null&&x.p>=thr()&&x.pl>0&&(x.close?!(S.dismc&&S.dismc[x.a.id]&&t<=S.dismc[x.a.id]):!snoozed(x.a.id)))}
+function alertBanner(){
+  if(viewing)return '';
+  return alertList().map(x=>{
+    const open=view!==x.a.id?`<button data-v="${x.a.id}">Open</button>`:'';
+    if(x.close)return `<div class="card alert"><b>⏰ ${esc(x.a.name)}: closing window</b><div class="k">Day ${x.days} of about ${cday()} (closing window ${cday()-ctol()} to ${cday()+ctol()} days). Profit is ${x.p.toFixed(1)}% of total equity (${sg(x.pl)}). Consider closing this account.</div><div class="mbtns row">${open}<button class="alt" data-dismc="${x.a.id}">Dismiss</button></div></div>`;
+    return `<div class="card alert"><b>🔔 ${esc(x.a.name)}</b> has reached ${x.p.toFixed(1)}% profit of its total equity<div class="k">Current P/L ${sg(x.pl)} · Total equity ${f(x.eq)}${x.days!=null?' · day '+x.days:''}${x.days!=null&&x.days>cday()+ctol()?' (past the closing window)':''}</div><div class="mbtns row">${open}<button class="alt" data-dism="${x.a.id}">Dismiss</button></div></div>`}).join('')}
+async function snoozeAsk(id){
+  const a=S.accounts.find(x=>x.id===id);if(!a)return;
+  const n=await ask(`<h3>Remind you again?</h3><div class="k">${esc(a.name)} has reached ${thr()}% profit of its total equity. When should I remind you again? I will only remind you if the profit is still ${thr()}% or above by then.</div>`,[{t:'In 3 days',v:3},{t:'In 7 days',v:7},{t:'In 10 days',v:10},{t:'Cancel',v:0,cls:'ghost'}]);
+  if(!n)return;
+  S.snooze=S.snooze||{};S.snooze[id]=Date.now()+n*86400000;persist();render();
+}
+const DEF={details:1,summary:1,allfig:1,accounts:1,holdings:1,selfh:1,sold:0,prices:0,addtrade:0,paste:0,cash:0,alertset:0};
 let OPEN={};try{OPEN=JSON.parse(localStorage.getItem('stockledger.open')||'{}')||{}}catch(e){}
 const isOpen=k=>k in OPEN?!!OPEN[k]:!!DEF[k];
 const saveOpen=()=>{try{localStorage.setItem('stockledger.open',JSON.stringify(OPEN))}catch(e){}};
@@ -187,7 +228,7 @@ const migrate=()=>{S.accounts.forEach(a=>{if(a.cash0==null&&a.cash!=null)a.cash0
 const fldHtml=a=>{const F=figs(a);return FLD.map(([k,l])=>{
   const auto=k==='equity'||k==='pl',lab=k==='equity'?'Current equity (auto)':k==='pl'?'Current P/L (auto)':k==='cash'?'Free cash (auto)':l;
   const val=k==='cash'?(F.cash!=null?f(F.cash):''):k==='equity'?(F.eq!=null?f(F.eq):''):k==='pl'?sg(F.pl):NUM.includes(k)?(a[k]!=null?f(a[k]):''):(a[k]||'');
-  return `<div><div class="k">${lab}</div><input class="accd" data-f="${k}" ${auto?'disabled':''} ${NUM.includes(k)?'inputmode="decimal"':''} value="${esc(val)}" placeholder="—"></div>`}).join('')};
+  return `<div><div class="k">${lab}</div><input class="accd" data-f="${k}" ${auto?'disabled':''} ${NUM.includes(k)?'inputmode="decimal"':''} ${k==='start'?'type="date"':''} value="${esc(k==='start'?(a.start||autoStart(a)):val)}" placeholder="—"></div>`}).join('')};
 const bulkCard=()=>`<div class="card"><div class="form">
     ${S.accounts.length?`<select id="bAcc" class="full">${S.accounts.map(a=>`<option value="${a.id}" ${view===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select><div class="k full">Only used when the paste has no client name.</div>`:''}
     <textarea id="bText" class="full" rows="9" placeholder="Paste here, for example:&#10;Client Name: Khuram Shahzad&#10;Username: COAF14701&#10;App: AKD Pro&#10;700 Efert @ 198.28&#10;300 GAL @ 597.99&#10;&#10;Or trades with dates:&#10;Efert buy 500 @ 230 on 1 Sep 2026"></textarea>
@@ -195,37 +236,39 @@ const bulkCard=()=>`<div class="card"><div class="form">
     <label class="k full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="bRep" style="width:auto;margin-top:3px"><span>Replace this client's existing trades and cash entries with this paste. Tick it when pasting a full history, so nothing is counted twice.</span></label>
     <button class="go full" id="bAdd">Add to account</button></div><div class="msg" id="bmsg"></div></div>`;
 function render(){
-  migrate();
+  migrate();applyShared(S);
+  const DUP=new Set(),seenT={};S.tx.forEach(t=>{const k=[t.acc,t.stock,t.type,t.qty,t.rate,t.d,t.src||''].join('|');if(seenT[k])DUP.add(t.id);else seenT[k]=1});
   if(AUTH.state!=='ok'){$('chips').innerHTML='';$('who').innerHTML='';$('app').className='';$('app').innerHTML=authHtml();return}
   $('who').innerHTML=esc(ME.email)+' · '+(LBL[ME.role]||'')+' <button class="ghost" data-auth="signout">Sign out</button>';
-  const PEND=ROSTER.filter(r=>r.role==='pending').length;
+  const PEND=ROSTER.filter(r=>r.role==='pending').length,ALIDS=viewing?new Map():new Map(alertList().map(x=>[x.a.id,x.close?'⏰':'🔔']));
   $('app').className=RO?'ro':'';
   if(view==='team'&&(!ME.head||viewing))view='all';
   if(view!=='all'&&view!=='team'&&!S.accounts.find(a=>a.id===view))view='all';
   $('chips').innerHTML=`<button class="chip ${view==='all'?'on':''}" data-v="all">All accounts</button>`+
     `<button class="chip add" id="pasteGo">Paste details</button><button class="chip add" id="addAcc">+ Account</button>`+(ME.head&&!viewing?`<button class="chip ${view==='team'?'on':''}" data-v="team">Team${PEND?' ('+PEND+')':''}</button>`:'')+
-    S.accounts.map(a=>`<button class="chip ${view===a.id?'on':''}" data-v="${a.id}">${esc(a.name)}</button>`).join('');
+    S.accounts.map(a=>`<button class="chip ${view===a.id?'on':''}" data-v="${a.id}">${esc(a.name)}${ALIDS.has(a.id)?' '+ALIDS.get(a.id):''}</button>`).join('');
   const vb=viewing?`<div class="card" style="border-color:var(--acc)"><b>${esc(viewing.name)}'s sheet</b> · ${RO?'View mode (read-only)':'<b>Edit mode ON</b>'}<div class="mbtns row">${RO?'<button data-edit="on">Enable edit mode</button>':'<button class="alt" data-edit="off">Back to view mode</button>'}<button class="alt" data-back="1">Back to my sheet</button></div></div>`:'';
   if(view==='team'){$('app').innerHTML=teamHtml();return}
   if(!S.accounts.length){$('app').innerHTML=vb+'<div class="card empty">Add an account with + Account, or paste trades below starting with Client: Name.</div>'+sec('paste','Paste client details',bulkCard(),'',true);return}
   const rows=byStock(compute(view)),T=totals(rows),ca=S.accounts.find(a=>a.id===view);
-  let h=vb+`<div style="text-align:right;margin-top:4px"><button class="ghost" id="exAll">Expand all</button><button class="ghost" id="coAll">Collapse all</button></div>`;
+  let h=vb+alertBanner()+`<div style="text-align:right;margin-top:4px"><button class="ghost" id="exAll">Expand all</button><button class="ghost" id="coAll">Collapse all</button></div>`;
   if(ca)h+=sec('details',esc(ca.name)+' · account details',`<div class="card"><div class="form">${fldHtml(ca)}</div></div>`);
   h+=sec('summary','Summary',`<div class="card"><div class="sum">
     <div><div class="k">Current P/L</div><div class="v big ${cls(T.unreal)}">${sg(T.unreal)}</div></div>
     <div><div class="k">Market value</div><div class="v">${f(T.val)}</div></div>
     <div><div class="k">Invested (open shares)</div><div class="v">${f(T.inv)}</div></div>
     <div><div class="k">P/L %</div><div class="v ${cls(T.unreal)}">${T.inv>0?sg(T.unreal/T.inv*100)+'%':'—'}</div></div>
-  </div></div>`,`<span class="${cls(T.unreal)}">${sg(T.unreal)}</span>`);
+  </div>${gaugeHtml(ca)}</div>`,`<span class="${cls(T.unreal)}">${sg(T.unreal)}</span>`);
   if(view==='all'){
     const FG=S.accounts.map(figs),sm=k=>k==='capital'?S.accounts.reduce((z,a)=>z+(a.capital||0),0):FG.reduce((z,x)=>z+(x[k]||0),0);
     h+=sec('allfig','All clients',`<div class="card"><div class="sum"><div><div class="k">Total capital</div><div class="v">${f(sm('capital'))}</div></div><div><div class="k">Free cash</div><div class="v">${f(sm('cash'))}</div></div><div><div class="k">Current equity</div><div class="v">${f(sm('eq'))}</div></div><div><div class="k">Current P/L</div><div class="v ${cls(sm('pl'))}">${sg(sm('pl'))}</div></div></div></div>`);
     h+=sec('accounts','Accounts ('+S.accounts.length+')','<div class="card">'+S.accounts.map(a=>{const t=totals(byStock(compute(a.id)));
       return `<div class="acc-row" data-v="${a.id}"><span>${esc(a.name)}<div class="k">${esc([a.user,a.app].filter(Boolean).join(' · '))}</div></span><span>${f(t.val)} <b class="${cls(t.unreal)}">${sg(t.unreal)}</b></span></div>`}).join('')+'</div>');
   }
+  if(view==='all')h+=sec('alertset','Profit alert and closing',`<div class="card"><div class="k">Show an alert when an account's Current P/L reaches this percentage of its total equity (free cash plus the value of its shares). Needs the account's Free cash to be set.</div><div class="form" style="margin-top:8px"><div><div class="k">Profit alert at (%)</div><input id="alertPct" inputmode="decimal" value="${thr()}"></div><div><div class="k">Closing around day</div><input id="closeDay" inputmode="numeric" value="${cday()}"></div><div class="full"><div class="k">Closing window: plus or minus (days)</div><input id="closeTol" inputmode="numeric" value="${ctol()}"></div></div></div>`,thr()+'%');
   const hcard=r=>{
     const pr=S.prices[r.stock],avg=r.qty>0?r.cost/r.qty:0,val=(pr!=null&&r.qty>0)?r.qty*pr:r.cost,un=val-r.cost;
-    return `<div class="card"><div class="hd"><b>${esc(r.stock)}</b><b class="${cls(un)}">${sg(un)}</b></div>
+    return `<div class="card hold ${un>0.004?'up':un<-0.004?'down':''}"><div class="hd"><b>${esc(r.stock)}</b><b class="${cls(un)}">${sg(un)}</b></div>
     <div class="grid"><div><span class="k">Qty</span><b>${f(r.qty)}</b></div><div><span class="k">Avg cost</span><b>${r.qty>0?f(avg):'—'}</b></div>
     <div><span class="k">Price</span><input class="price" type="number" inputmode="decimal" step="any" data-stock="${esc(r.stock)}" value="${pr??''}" placeholder="Rs"></div>
     <div><span class="k">Value</span><b>${f(val)}</b></div></div>
@@ -236,8 +279,8 @@ function render(){
   if(sf.length){const T2=totals(sf);h+=sec('selfh','Self-bought / client requests ('+sf.length+')',sf.map(hcard).join(''),`<span class="${cls(T2.unreal)}">${sg(T2.unreal)}</span>`)}
   if(soldR.length)h+=sec('sold','Fully sold stocks ('+soldR.length+')','<div class="card">'+soldR.map(r=>{
     const ts=sortTx(S.tx).filter(t=>t.stock===r.stock&&(t.src||'')===r.src&&(view==='all'||t.acc===view));
-    return `<details style="border-top:1px solid var(--line);padding:8px 0"><summary style="cursor:pointer"><b>${esc(r.stock)}</b>${r.src?' <span class="tag SELF">Self-bought</span>':''}</summary>`+ts.map(t=>{const a=S.accounts.find(x=>x.id===t.acc);return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}${view==='all'&&a?' · '+esc(a.name):''}</span></div><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div>`}).join('')+'</details>'}).join('')+'<div class="k" style="margin-top:6px">Tap a stock to see its trades.</div></div>');
-  if(rows.length)h+=sec('prices','Update prices',`<div class="card"><div class="k">One stock per line, e.g. EFERT 190.5</div><div class="form" style="margin-top:8px"><textarea id="pText" class="full" rows="3" placeholder="EFERT 190.5&#10;HUBC 210"></textarea><button class="go full" id="pAdd">Update prices</button></div><div class="msg" id="pmsg"></div></div>`);
+    return `<details style="border-top:1px solid var(--line);padding:8px 0"><summary style="cursor:pointer"><b>${esc(r.stock)}</b>${r.src?' <span class="tag SELF">Self-bought</span>':''}</summary>`+ts.map(t=>{const a=S.accounts.find(x=>x.id===t.acc);return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}${view==='all'&&a?' · '+esc(a.name):''}</span></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div></div>`}).join('')+'</details>'}).join('')+'<div class="k" style="margin-top:6px">Tap a stock to see its trades.</div></div>');
+  if(rows.length)h+=sec('prices','Update prices',`<div class="card"><div class="k">${sharedNote()}One stock per line, e.g. EFERT 190.5</div><div class="form" style="margin-top:8px"><textarea id="pText" class="full" rows="3" placeholder="EFERT 190.5&#10;HUBC 210"></textarea><button class="go full" id="pAdd">Update prices</button></div><div class="msg" id="pmsg"></div></div>`);
   const stocks=[...new Set(S.tx.map(t=>t.stock))];
   h+=sec('addtrade','Add trade',`<div class="card"><div class="form">
     <select id="fAcc" class="full">${S.accounts.map(a=>`<option value="${a.id}" ${view===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select>
@@ -257,13 +300,13 @@ function render(){
   const gl=Object.values(G).filter(g=>(view==='all'||g.acc===view)&&g.held>1e-6).sort((x,y)=>x.stock.localeCompare(y.stock)||x.acc.localeCompare(y.acc));
   const curHtml=(gl.length?gl.map(g=>{
     return `<div class="card"><div class="hd"><b>${esc(g.stock)}${g.src?' <span class="tag SELF">Self-bought</span>':''}</b><span class="k">Held ${f(g.held)} · Avg ${g.held>0?f(g.avg):'—'}</span></div>`+
-    g.rows.map(r=>{const t=r.t;return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}</span><div class="k">Amount ${f(t.qty*t.rate)} · Held after ${f(r.held)} · Avg after ${r.held>0?f(r.avg):'—'}</div></div><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div>`}).join('')+'</div>'}).join(''):'<div class="card empty">No stocks held right now.</div>');
+    g.rows.map(r=>{const t=r.t;return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}</span><div class="k">Amount ${f(t.qty*t.rate)} · Held after ${f(r.held)} · Avg after ${r.held>0?f(r.avg):'—'}</div></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div></div>`}).join('')+'</div>'}).join(''):'<div class="card empty">No stocks held right now.</div>');
   const ov=[];S.tx.forEach((t,i)=>{if(view==='all'||t.acc===view)ov.push({d:t.d||'',i,t})});(S.cash||[]).forEach((c,i)=>{if(view==='all'||c.acc===view)ov.push({d:c.d||'',i:1e6+i,c})});
   ov.sort((x,y)=>y.d.localeCompare(x.d)||y.i-x.i);
   const allHtml='<div class="card">'+(ov.length?ov.map(o=>{
     const a=S.accounts.find(x=>x.id===(o.t||o.c).acc),an=view==='all'&&a?' · '+esc(a.name):'';
-    if(o.t){const t=o.t;return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span><b>${esc(t.stock)}</b> ${f(t.qty)} @ ${f(t.rate)}<div class="k">${fd(t.d)} · Amount ${f(t.qty*t.rate)}${t.src?' · Self-bought':''}${an}</div></div></div>`}
-    const c=o.c,v=c.amt*CT[c.type];return `<div class="tx"><div><span class="tag SELF">${CL[c.type]}</span><span class="${cls(v)}">${sg(v)}</span><div class="k">${fd(c.d)}${c.note?' · '+esc(c.note):''}${an}</div></div></div>`}).join(''):'<div class="empty">Nothing recorded yet.</div>')+'</div>';
+    if(o.t){const t=o.t;return `<div class="tx"><div><span class="tag ${t.type}">${t.type}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}<b>${esc(t.stock)}</b> ${f(t.qty)} @ ${f(t.rate)}<div class="k">${fd(t.d)} · Amount ${f(t.qty*t.rate)}${t.src?' · Self-bought':''}${an}</div></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button></div></div>`}
+    const c=o.c,v=c.amt*CT[c.type];return `<div class="tx"><div><span class="tag SELF">${CL[c.type]}</span><span class="${cls(v)}">${sg(v)}</span><div class="k">${fd(c.d)}${c.note?' · '+esc(c.note):''}${an}</div></div><div class="act"><button class="ghost" data-ecash="${c.id}">Edit</button></div></div>`}).join(''):'<div class="empty">Nothing recorded yet.</div>')+'</div>';
   h+=`<div class="hbar"><button class="hbtn ${hist==='cur'?'on':''}" data-hist="cur">Current stocks history ${hist==='cur'?'▴':'▾'}</button><button class="hbtn ${hist==='all'?'on':''}" data-hist="all">Total history of all trades ${hist==='all'?'▴':'▾'}</button></div>`+(hist==='cur'?curHtml:hist==='all'?allHtml:'');
   if(view!=='all')h+=sec('cash','Deposits, withdrawals, CGT and charges',cashCard());
   if(view!=='all')h+=`<div style="margin-top:18px;text-align:center"><button class="ghost" data-clr="${view}">${clrAcc===view?'Tap again to clear all trades and cash entries':'Clear all trades for this client'}</button><br><button class="ghost" data-delacc="${view}">${delAcc===view?'Tap again to delete this account and its trades':'Delete this account'}</button></div>`;
@@ -431,6 +474,69 @@ async function setEdit(on){
   else{clearTimeout(saveT);push();RO=true}
   render();
 }
+function applyShared(t){
+  if(!t)return;t.prices=t.prices||{};t.priceT=t.priceT||{};
+  for(const k in SHARED){const e=SHARED[k];if(e&&typeof e.p==='number'&&(e.t||0)>(t.priceT[k]||0)){t.prices[k]=e.p;t.priceT[k]=e.t}}}
+function setPrices(ch){
+  const t=Date.now();S.priceT=S.priceT||{};
+  for(const k in ch){S.prices[k]=ch[k];S.priceT[k]=t}
+  persist();pushPrices(ch,t)}
+async function pushPrices(ch,t){
+  if(!FB.fs||AUTH.state!=='ok'||viewing)return;
+  const ref=FB.fs.doc('prices/current'),by=ME.name||(ME.email||'').split('@')[0],flat={},map={};
+  for(const k in ch){const key=k.replace(/[.\/\[\]*`~]/g,'');if(!key)continue;flat['map.'+key]={p:ch[k],t,by};map[key]={p:ch[k],t,by}}
+  if(!Object.keys(map).length)return;
+  try{await ref.update(flat)}catch(e){try{await ref.set({map})}catch(e2){status('Prices saved here, but could not be shared')}}}
+function sharedNote(){
+  const es=Object.values(SHARED).filter(e=>e&&e.t);if(!es.length)return 'Prices you enter are shared with the whole team.<br>';
+  const last=es.reduce((a,b)=>b.t>a.t?b:a);
+  return 'Shared with the whole team. Last update '+fdt(last.t)+(ME.head&&last.by?' by '+esc(last.by):'')+'.<br>'}
+function gaugeHtml(a){
+  if(!a)return '';const F=figs(a);
+  if(F.eq==null||!(F.eq>0))return '<div class="k" style="margin-top:12px">Set Free cash in the account details to see progress towards the profit alert.</div>';
+  const p=F.pl/F.eq*100,hit=p>=thr(),fill=p<=0?0:Math.min(100,p/thr()*100);
+  return `<div class="gauge"><i class="${hit?'hit':''}" style="width:${fill}%"></i></div><div class="k" style="margin-top:6px">${hit?'Profit alert level reached':'Progress to the '+thr()+'% profit alert'} · ${p.toFixed(1)}% of total equity</div>`}
+async function editTrade(id){
+  const t0=S.tx.find(x=>x.id===id);if(!t0||(viewing&&RO))return;
+  let v={acc:t0.acc,stock:t0.stock,type:t0.type,qty:t0.qty,rate:t0.rate,d:t0.d||td(),src:t0.src||'',all:false},msg='';
+  for(;;){
+    const accOpts=S.accounts.map(a=>`<option value="${a.id}" ${a.id===v.acc?'selected':''}>${esc(a.name)}</option>`).join('');
+    const ans=await ask(`<h3>Edit trade</h3><div class="msg" style="margin:0 0 6px">${esc(msg)}</div><div class="form">
+      <div class="full"><div class="k">Client</div><select id="etAcc">${accOpts}</select></div>
+      <div><div class="k">Stock</div><input id="etStock" value="${esc(v.stock)}" autocapitalize="characters"></div>
+      <div><div class="k">Type</div><select id="etType"><option ${v.type==='BUY'?'selected':''}>BUY</option><option ${v.type==='SELL'?'selected':''}>SELL</option></select></div>
+      <div><div class="k">Quantity</div><input id="etQty" inputmode="decimal" value="${esc(v.qty)}"></div>
+      <div><div class="k">Rate</div><input id="etRate" inputmode="decimal" value="${esc(v.rate)}"></div>
+      <div><div class="k">Date</div><input id="etDate" type="date" value="${esc(v.d)}"></div>
+      <div><div class="k">Holding type</div><select id="etSrc"><option value="" ${v.src?'':'selected'}>Managed by us</option><option value="SELF" ${v.src?'selected':''}>Self-bought</option></select></div>
+      <label class="k full" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="etAll" style="width:auto;margin-top:3px" ${v.all?'checked':''}><span>If I change the stock name, also rename every trade of the old name for this client</span></label></div>`,
+      [{t:'Save changes',v:'save'},{t:'Cancel',v:'x',cls:'ghost'}]);
+    if(ans!=='save')return;
+    v={acc:$('etAcc').value,stock:$('etStock').value.trim().toUpperCase(),type:$('etType').value,qty:parseFloat($('etQty').value),rate:parseFloat($('etRate').value),d:$('etDate').value,src:$('etSrc').value,all:$('etAll').checked};
+    if(!v.stock){msg='Enter the stock name.';continue}
+    if(!(v.qty>0)){msg='Quantity must be above 0.';continue}
+    if(isNaN(v.rate)||v.rate<0){msg='Enter a valid rate.';continue}
+    if(!v.d){msg='Choose a date.';continue}
+    let next=S.tx.map(x=>x.id===id?{...x,acc:v.acc,stock:v.stock,type:v.type,qty:v.qty,rate:v.rate,d:v.d,src:v.src||undefined}:x);
+    if(v.all&&v.stock!==t0.stock)next=next.map(x=>(x.id!==id&&x.acc===t0.acc&&x.stock===t0.stock&&(x.src||'')===(t0.src||''))?{...x,stock:v.stock}:x);
+    if(!valid(next)){msg='With this change a sell would be larger than the shares held. Fix the quantity, date or type.';continue}
+    S.tx=next;persist();render();status('Trade updated');return}}
+async function editCash(id){
+  const c0=(S.cash||[]).find(x=>x.id===id);if(!c0||(viewing&&RO))return;
+  let v={type:c0.type,amt:c0.amt,d:c0.d||td(),note:c0.note||''},msg='';
+  for(;;){
+    const ans=await ask(`<h3>Edit entry</h3><div class="msg" style="margin:0 0 6px">${esc(msg)}</div><div class="form">
+      <div class="full"><div class="k">Type</div><select id="ecType">${Object.keys(CL).map(k=>`<option value="${k}" ${k===v.type?'selected':''}>${CL[k]}</option>`).join('')}</select></div>
+      <div><div class="k">Amount</div><input id="ecAmt" inputmode="decimal" value="${esc(v.amt)}"></div>
+      <div><div class="k">Date</div><input id="ecDate" type="date" value="${esc(v.d)}"></div>
+      <div class="full"><div class="k">Note</div><input id="ecNote" maxlength="60" value="${esc(v.note)}"></div></div>`,
+      [{t:'Save changes',v:'save'},{t:'Cancel',v:'x',cls:'ghost'}]);
+    if(ans!=='save')return;
+    const ty=$('ecType').value;let a=amt($('ecAmt').value);
+    v={type:ty,amt:a==null?NaN:(ty==='OTHER'?a:Math.abs(a)),d:$('ecDate').value,note:$('ecNote').value.trim()};
+    if(isNaN(v.amt)||v.amt===0){msg='Enter an amount.';v.amt=$('ecAmt').value;continue}
+    if(!v.d){msg='Choose a date.';continue}
+    S.cash=S.cash.map(x=>x.id===id?{...x,...v}:x);persist();render();status('Entry updated');return}}
 function onOwn(snap){
   if(snap.exists){const d=snap.data()||{};let r=null;try{r=JSON.parse(d.json)}catch(e){}
     ME.first=d.first||ME.first||Date.now();
@@ -449,6 +555,7 @@ function loadLocal(){
 function startData(){
   OWNREF=FB.fs.doc('team/'+ME.uid);ME.pinged=false;
   DATA_UNSUBS.push(OWNREF.onSnapshot(onOwn,()=>status('Offline: saved on this device')));
+  DATA_UNSUBS.push(FB.fs.doc('prices/current').onSnapshot(sn=>{SHARED=(sn.exists&&(sn.data()||{}).map)||{};render()},()=>{}));
   if(ME.head){
     DATA_UNSUBS.push(FB.fs.collection('members').onSnapshot(qs=>{
       ROSTER=qs.docs.map(d=>{const x=d.data()||{};return {uid:d.id,email:x.email||'',name:x.name||'',role:x.role||'pending',first:x.first||0,last:x.last||0}});
@@ -459,7 +566,7 @@ function startData(){
   }
 }
 function stopData(){
-  DATA_UNSUBS.forEach(u=>{try{u()}catch(e){}});DATA_UNSUBS=[];OWNREF=null;ROSTER=[];TEAMCNT={};
+  DATA_UNSUBS.forEach(u=>{try{u()}catch(e){}});DATA_UNSUBS=[];OWNREF=null;ROSTER=[];TEAMCNT={};SHARED={};
   if(viewing){try{viewing.unsub&&viewing.unsub()}catch(e){}viewing=null;RO=false;MINE=null}
 }
 function onMember(snap){
@@ -469,7 +576,7 @@ function onMember(snap){
       .catch(e=>{AUTH.state='error';AUTH.msg='Could not register your account: '+(e.code||e.message);render()});
     return}
   const d=snap.data()||{},prev=AUTH.state,wasHead=ME.head;
-  ME.role=d.role;ME.head=d.role==='owner'||d.role==='head';ME.first=d.first||0;
+  ME.role=d.role;ME.name=d.name||'';ME.head=d.role==='owner'||d.role==='head';ME.first=d.first||0;
   const st=d.role==='blocked'?'blocked':d.role==='pending'?'pending':'ok';
   if(st==='ok'&&prev!=='ok'){AUTH.state='ok';loadLocal();startData()}
   else if(st!=='ok'&&prev==='ok'){stopData();AUTH.state=st}
@@ -531,12 +638,16 @@ async function startFirebase(){
   }catch(e){AUTH.state='error';AUTH.msg='Could not load Firebase. Check your internet connection and the settings at the top of this file. ('+(e.message||e)+')';render()}
 }
 document.addEventListener('click',e=>{
-  const c=e.target.closest('[data-v],#addAcc,#accSave,#fAdd,#bAdd,#pAdd,#pasteGo,#cAdd,#exAll,#coAll,[data-sec],[data-hist],[data-open],[data-act],[data-auth],[data-role],[data-edit],[data-back],[data-clr],[data-delc],[data-del],[data-delacc]');
+  const c=e.target.closest('[data-v],#addAcc,#accSave,#fAdd,#bAdd,#pAdd,#pasteGo,#cAdd,#exAll,#coAll,[data-sec],[data-hist],[data-open],[data-act],[data-auth],[data-etx],[data-ecash],[data-dism],[data-dismc],[data-role],[data-edit],[data-back],[data-clr],[data-delc],[data-del],[data-delacc]');
   if(!c)return;
   if(RO&&!(c.dataset.v||c.dataset.sec||c.dataset.hist||c.dataset.edit||c.dataset.back||c.dataset.auth||c.id==='exAll'||c.id==='coAll'))return;
   if(c.dataset.open){enterView(c.dataset.open)}
   else if(c.dataset.act){memberAct(c.dataset.act,c.dataset.uid)}
   else if(c.dataset.auth){doAuth(c.dataset.auth)}
+  else if(c.dataset.etx){editTrade(c.dataset.etx)}
+  else if(c.dataset.ecash){editCash(c.dataset.ecash)}
+  else if(c.dataset.dism){snoozeAsk(c.dataset.dism)}
+  else if(c.dataset.dismc){const x=alertList().find(y=>y.a.id===c.dataset.dismc);if(x&&x.winEnd){S.dismc=S.dismc||{};S.dismc[x.a.id]=x.winEnd;persist();render()}}
   else if(c.dataset.role){roleHelp()}
   else if(c.dataset.edit){setEdit(c.dataset.edit==='on')}
   else if(c.dataset.back){leaveView()}
@@ -553,6 +664,8 @@ document.addEventListener('click',e=>{
     if(!t.stock||!(t.qty>0)||!(t.rate>=0)||isNaN(t.rate))return say('Enter the stock, a quantity above 0 and a rate.');
     const next=S.tx.concat(t);
     if(!valid(next))return say('This sell is more than the shares held in that account.');
+    const dup=S.tx.some(x=>x.acc===t.acc&&x.stock===t.stock&&x.type===t.type&&x.qty===t.qty&&x.rate===t.rate&&x.d===t.d&&(x.src||'')===(t.src||''));
+    if(dup){ask(`<h3>Possible duplicate</h3><div class="k">A trade with the same client, stock, type, quantity, rate and date is already recorded. Add it again?</div>`,[{t:'Add anyway',v:'y'},{t:'Cancel',v:'n',cls:'ghost'}]).then(a=>{if(a==='y'){S.tx=next;persist();render()}});return}
     S.tx=next;persist();render();
   }
   else if(c.id==='cAdd'){
@@ -566,9 +679,9 @@ document.addEventListener('click',e=>{
     S.cash=(S.cash||[]).filter(x=>x.id!==armed);armed=null;persist();render();
   }
   else if(c.id==='pAdd'){
-    let n=0;$('pText').value.split('\n').forEach(l=>{const m=l.replace(/,/g,'').match(/([A-Za-z][A-Za-z0-9&.\-]*)\D+?(\d+\.?\d*)/);if(m){S.prices[m[1].toUpperCase()]=parseFloat(m[2]);n++}});
+    let n=0;const ch={};$('pText').value.split('\n').forEach(l=>{const m=l.replace(/,/g,'').match(/([A-Za-z][A-Za-z0-9&.\-]*)\D+?(\d+\.?\d*)/);if(m){ch[m[1].toUpperCase()]=parseFloat(m[2]);n++}});
     if(!n)return $('pmsg').textContent='Use one stock per line, like EFERT 190.5';
-    persist();render();status('Updated '+n+' price'+(n===1?'':'s'));
+    setPrices(ch);render();status('Updated '+n+' price'+(n===1?'':'s')+' for the whole team');
   }
   else if(c.dataset.hist){hist=hist===c.dataset.hist?'':c.dataset.hist;render()}
   else if(c.dataset.clr){
@@ -592,12 +705,15 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
   if(RO)return;
+  if(e.target.id==='alertPct'||e.target.id==='closeDay'||e.target.id==='closeTol'){
+    const id=e.target.id,v=parseFloat(String(e.target.value).replace(',','.')),key=id==='alertPct'?'alertPct':id==='closeDay'?'closeDay':'closeTol',ok=id==='closeTol'?v>=0:v>0;
+    if(!isNaN(v)&&ok){S[key]=v;persist();render()}else e.target.value=id==='alertPct'?thr():id==='closeDay'?cday():ctol();return}
   const d=e.target.closest('input.accd');
   if(d){const a=S.accounts.find(x=>x.id===view);if(a){const k=d.dataset.f;if(NUM.includes(k)){let v=amt(d.value);if(v!=null&&k!=='pl')v=Math.abs(v);a[k]=v;if(k==='cash'&&v!=null)a.cash0=v-flow(a.id);d.value=v==null?'':f(v)}else{const v=d.value.trim();if(k==='name'){if(!v){d.value=a.name;return}if(S.accounts.some(x=>x.id!==a.id&&x.name.toLowerCase()===v.toLowerCase())){d.value=a.name;status('Another client already has that name');return}}a[k]=v}persist();if(k==='cash'||k==='name')render()}return}
   const i=e.target.closest('input.price');if(!i)return;
   const v=parseFloat(i.value);
-  if(isNaN(v))delete S.prices[i.dataset.stock];else S.prices[i.dataset.stock]=v;
-  persist();render();
+  if(isNaN(v)){delete S.prices[i.dataset.stock];S.priceT=S.priceT||{};S.priceT[i.dataset.stock]=Date.now();persist();render();return}
+  setPrices({[i.dataset.stock]:v});render();
 });
 
 render();status('');
