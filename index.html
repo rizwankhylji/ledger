@@ -92,6 +92,15 @@ input:disabled{opacity:1;-webkit-text-fill-color:var(--ink)}
 .go.alt{background:var(--card);color:var(--acc)}
 .alert{border-color:var(--gain);background:color-mix(in srgb,var(--gain) 9%,var(--card))}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+.bkrow{display:grid;grid-template-columns:1fr 80px 92px;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.bkrow .top{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:none;background:var(--bg);color:var(--mute);padding:8px 18px;font:700 13px "Manrope",system-ui,sans-serif;cursor:pointer;min-height:36px}
+.seg button.on{background:var(--gain);color:#fff}
+.seg button.on.sell{background:var(--loss);color:#fff}
+.sugg{position:fixed;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:12px;max-height:220px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.sugg.hide{display:none}
+.sugg button{display:block;width:100%;text-align:left;padding:11px 14px;border:none;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:600 14px "Manrope",system-ui,sans-serif;cursor:pointer}
 </style>
 </head>
 <body>
@@ -104,6 +113,7 @@ input:disabled{opacity:1;-webkit-text-fill-color:var(--ink)}
 </div>
 <div id="app"></div>
 <div id="modal" class="modalbg hide"></div>
+<div id="sugg" class="sugg hide"></div>
 </main>
 <script>
 // =====================  FIREBASE SETTINGS: PASTE YOURS HERE  =====================
@@ -116,7 +126,8 @@ let S={accounts:[],tx:[],prices:{},cash:[],ts:0},view='all',docRef=null,armed=nu
 const ME={uid:null,email:'',role:'',owner:false,head:false,first:0,pinged:false,seen:false};
 const AUTH={state:'loading',msg:''};
 const FB={auth:null,A:null,fs:null,unsubMember:null};
-let SHARED={};
+let SHARED={},STOCKLIST=[],BK=null,KNOWN=new Set();
+const SUG={inp:null};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const gid=()=>Math.random().toString(36).slice(2,9);
@@ -132,7 +143,7 @@ S.cash=S.cash||[];
 
 function persist(){
   if(AUTH.state!=='ok'||(viewing&&RO))return;
-  S.ts=Date.now();
+  S.ts=Date.now();stockHook();
   if(!viewing){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
   clearTimeout(saveT);
   saveT=setTimeout(push,500);
@@ -220,7 +231,7 @@ async function snoozeAsk(id){
   if(!n)return;
   S.snooze=S.snooze||{};S.snooze[id]=Date.now()+n*86400000;persist();render();
 }
-const DEF={details:1,summary:1,allfig:1,accounts:1,holdings:1,selfh:1,sold:0,prices:0,addtrade:0,paste:0,cash:0,alertset:0};
+const DEF={details:1,summary:1,allfig:1,accounts:1,holdings:1,selfh:1,sold:0,prices:0,addtrade:0,bulk:0,paste:0,cash:0,alertset:0};
 let OPEN={};try{OPEN=JSON.parse(localStorage.getItem('stockledger.open')||'{}')||{}}catch(e){}
 const isOpen=k=>k in OPEN?!!OPEN[k]:!!DEF[k];
 const saveOpen=()=>{try{localStorage.setItem('stockledger.open',JSON.stringify(OPEN))}catch(e){}};
@@ -246,11 +257,13 @@ function render(){
   const PEND=ROSTER.filter(r=>r.role==='pending').length,ALIDS=viewing?new Map():new Map(alertList().map(x=>[x.a.id,x.close?'⏰':'🔔']));
   $('app').className=RO?'ro':'';
   if(view==='team'&&(!ME.head||viewing))view='all';
-  if(view!=='all'&&view!=='team'&&!S.accounts.find(a=>a.id===view))view='all';
+  if(view==='stocks'&&viewing)view='all';
+  if(view!=='all'&&view!=='team'&&view!=='stocks'&&!S.accounts.find(a=>a.id===view))view='all';
   $('chips').innerHTML=`<button class="chip ${view==='all'?'on':''}" data-v="all">All accounts</button>`+
-    `<button class="chip add" id="pasteGo">Paste details</button><button class="chip add" id="addAcc">+ Account</button>`+(ME.head&&!viewing?`<button class="chip ${view==='team'?'on':''}" data-v="team">Team${PEND?' ('+PEND+')':''}</button>`:'')+
+    `<button class="chip add" id="pasteGo">Paste details</button><button class="chip add" id="bulkGo">Bulk entry</button><button class="chip add" id="addAcc">+ Account</button>`+(ME.head&&!viewing?`<button class="chip ${view==='team'?'on':''}" data-v="team">Team${PEND?' ('+PEND+')':''}</button>`:'')+(viewing?'':`<button class="chip ${view==='stocks'?'on':''}" data-v="stocks">Stocks</button>`)+
     S.accounts.map(a=>`<button class="chip ${view===a.id?'on':''}" data-v="${a.id}">${esc(a.name)}${ALIDS.has(a.id)?' '+ALIDS.get(a.id):''}</button>`).join('');
   const vb=viewing?`<div class="card" style="border-color:var(--acc)"><b>${esc(viewing.name)}'s sheet</b> · ${RO?'View mode (read-only)':'<b>Edit mode ON</b>'}<div class="mbtns row">${RO?'<button data-edit="on">Enable edit mode</button>':'<button class="alt" data-edit="off">Back to view mode</button>'}<button class="alt" data-back="1">Back to my sheet</button></div></div>`:'';
+  if(view==='stocks'){$('app').innerHTML=vb+stocksHtml();return}
   if(view==='team'){$('app').innerHTML=teamHtml();return}
   if(!S.accounts.length){$('app').innerHTML=vb+'<div class="card empty">Add an account with + Account, or paste trades below starting with Client: Name.</div>'+sec('paste','Paste client details',bulkCard(),'',true);return}
   const rows=byStock(compute(view)),T=totals(rows),ca=S.accounts.find(a=>a.id===view);
@@ -285,9 +298,10 @@ function render(){
     return `<details style="border-top:1px solid var(--line);padding:8px 0"><summary style="cursor:pointer"><b>${esc(r.stock)}</b>${r.src?' <span class="tag SELF">Self-bought</span>':''}</summary>`+ts.map(t=>{const a=S.accounts.find(x=>x.id===t.acc);return `<div class="tx"><div><span class="tag ${t.type}">${tlab(t)}</span>${DUP.has(t.id)?'<span class="tag DUP">Duplicate?</span>':''}${f(t.qty)} @ ${f(t.rate)} <span class="k">on ${fd(t.d)}${view==='all'&&a?' · '+esc(a.name):''}</span></div><div class="act"><button class="ghost" data-etx="${t.id}">Edit</button><button class="ghost" data-del="${t.id}">${armed===t.id?'Confirm':'Delete'}</button></div></div>`}).join('')+'</details>'}).join('')+'<div class="k" style="margin-top:6px">Tap a stock to see its trades.</div></div>');
   if(rows.length)h+=sec('prices','Update prices',`<div class="card"><div class="k">${sharedNote()}One stock per line, e.g. EFERT 190.5</div><div class="form" style="margin-top:8px"><textarea id="pText" class="full" rows="3" placeholder="EFERT 190.5&#10;HUBC 210"></textarea><button class="go full" id="pAdd">Update prices</button></div><div class="msg" id="pmsg"></div></div>`);
   const stocks=[...new Set(S.tx.map(t=>t.stock))];
+  h+=sec('bulk','Bulk entry',`<div id="bulkBox">${bulkHtml()}</div>`);
   h+=sec('addtrade','Add trade',`<div class="card"><div class="form">
     <select id="fAcc" class="full">${S.accounts.map(a=>`<option value="${a.id}" ${view===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select>
-    <input id="fStock" list="stocks" placeholder="Stock (e.g. A)" autocapitalize="characters"><datalist id="stocks">${stocks.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+    <input id="fStock" data-sugg="stock" autocomplete="off" placeholder="Stock (e.g. A)" autocapitalize="characters">
     <select id="fType"><option>BUY</option><option>SELL</option></select>
     <input id="fQty" type="number" inputmode="decimal" placeholder="Quantity"><input id="fRate" type="number" inputmode="decimal" step="any" placeholder="Rate">
     <select id="fSrc" class="full"><option value="">Managed by us</option><option value="SELF">Self-bought / client request</option></select>
@@ -478,6 +492,136 @@ async function setEdit(on){
   else{clearTimeout(saveT);push();RO=true}
   render();
 }
+function seedKnown(){KNOWN=new Set((S.tx||[]).map(t=>t.stock))}
+function stockHook(){
+  if(viewing)return;
+  const nw=[...new Set(S.tx.map(t=>t.stock))].filter(n=>n&&!KNOWN.has(n));
+  if(!nw.length)return;nw.forEach(n=>KNOWN.add(n));ensureStocks(nw)}
+async function ensureStocks(names){
+  if(!FB.fs||AUTH.state!=='ok')return;
+  let cur=STOCKLIST;
+  try{const sn=await FB.fs.doc('stocks/list').get();if(sn.exists&&Array.isArray((sn.data()||{}).names))cur=sn.data().names}catch(e){}
+  const have=new Set(cur.map(x=>String(x).toUpperCase())),add=[...new Set(names.map(n=>String(n).trim().toUpperCase()))].filter(n=>n&&!have.has(n));
+  if(!add.length)return;
+  saveStocks(cur.concat(add))}
+function saveStocks(list){
+  STOCKLIST=[...new Set(list.map(x=>String(x).trim().toUpperCase()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if(FB.fs&&AUTH.state==='ok')FB.fs.doc('stocks/list').set({names:STOCKLIST}).catch(()=>status('Could not update the stock list'));
+  if(view==='stocks')render()}
+function stocksHtml(){
+  return `<div class="card"><b>Stock list</b> <span class="k">· ${STOCKLIST.length} stock${STOCKLIST.length===1?'':'s'}</span>
+    <div class="k" style="margin-top:6px">Shared with the whole team. A stock you use in a trade is added here automatically. Typing the first letters of a stock offers the matching names. Editing or deleting a name here does not change trades that are already saved.</div>
+    <div class="form" style="margin-top:10px"><input id="stkNew" class="full" placeholder="Add a stock name, e.g. PPL" autocapitalize="characters" autocomplete="off"><button class="go" id="stkAdd">Add stock</button><button class="go alt" id="stkImport">Add from my trades</button></div><div class="msg" id="stkmsg"></div></div>`+
+    (STOCKLIST.length?`<div class="card">${STOCKLIST.map(n=>`<div class="tx"><b>${esc(n)}</b><div class="act"><button class="ghost" data-stkedit="${esc(n)}">Edit</button><button class="ghost" data-stkdel="${esc(n)}">Delete</button></div></div>`).join('')}</div>`:'<div class="card empty">No stocks yet. Add one above, or they appear here as trades are entered.</div>')}
+function stkAdd(){
+  const el=$('stkNew'),v=String((el&&el.value)||'').trim().toUpperCase(),say=m=>{const e=$('stkmsg');if(e)e.textContent=m};
+  if(!v)return say('Type a stock name.');
+  if(!/^[A-Z0-9&\-]{1,15}$/.test(v))return say('Use letters and numbers only, up to 15 characters.');
+  if(STOCKLIST.some(x=>x.toUpperCase()===v))return say('That stock is already in the list.');
+  saveStocks(STOCKLIST.concat(v));status('Stock added')}
+async function stkEdit(name){
+  let v=name,msg='';
+  for(;;){
+    const ans=await ask(`<h3>Edit stock name</h3><div class="msg" style="margin:0 0 6px">${esc(msg)}</div><input id="stkEn" value="${esc(v)}" autocapitalize="characters" autocomplete="off"><div class="k" style="margin-top:8px">This changes the name in the stock list only. Trades already saved keep their old name until you edit them.</div>`,[{t:'Save',v:'save'},{t:'Cancel',v:'x',cls:'ghost'}]);
+    if(ans!=='save')return;
+    v=String($('stkEn').value||'').trim().toUpperCase();
+    if(!v){msg='Type a stock name.';continue}
+    if(!/^[A-Z0-9&\-]{1,15}$/.test(v)){msg='Use letters and numbers only, up to 15 characters.';continue}
+    if(v!==name&&STOCKLIST.some(x=>x.toUpperCase()===v)){msg='That name is already in the list.';continue}
+    saveStocks(STOCKLIST.map(x=>x===name?v:x));status('Stock updated');return}}
+async function stkDel(name){
+  const ans=await ask(`<h3>Delete ${esc(name)}?</h3><div class="k">It is removed from the stock list only. Trades already saved are not changed.</div>`,[{t:'Yes, delete',v:'y'},{t:'Cancel',v:'n',cls:'ghost'}]);
+  if(ans==='y'){saveStocks(STOCKLIST.filter(x=>x!==name));status('Stock deleted')}}
+async function stkImport(){
+  const nm=[...new Set(S.tx.map(t=>t.stock))];nm.forEach(n=>KNOWN.add(n));await ensureStocks(nm);status('Added stocks from your trades')}
+function sugList(inp){
+  const q=String(inp.value||'').trim().toUpperCase();if(!q)return [];
+  const src=inp.dataset.sugg==='client'?S.accounts.map(a=>a.name):STOCKLIST;
+  return src.filter(n=>String(n).toUpperCase().startsWith(q)&&String(n).toUpperCase()!==q).slice(0,8)}
+function hideSugg(){const el=$('sugg');if(el){el.classList.add('hide');el.innerHTML=''}SUG.inp=null}
+function showSugg(inp){
+  const list=sugList(inp),el=$('sugg');if(!el)return;
+  if(!list.length){hideSugg();return}
+  el.innerHTML=list.map(n=>`<button data-pick="${esc(n)}">${esc(n)}</button>`).join('');
+  try{const r=inp.getBoundingClientRect();el.style.left=r.left+'px';el.style.top=(r.bottom+2)+'px';el.style.width=Math.max(r.width,170)+'px'}catch(e){}
+  el.classList.remove('hide');SUG.inp=inp}
+function grabForm(){
+  const els=(typeof document.querySelectorAll==='function')?document.querySelectorAll('#app input[id],#app textarea[id],#app select[id]'):[],vals={};
+  els.forEach(e=>{vals[e.id]=e.type==='checkbox'?e.checked:e.value});
+  const a=document.activeElement;return {vals,focus:a&&a.id,start:a&&a.selectionStart,end:a&&a.selectionEnd}}
+function restoreForm(g){
+  Object.keys(g.vals).forEach(id=>{const e=document.getElementById(id);if(!e)return;if(e.type==='checkbox')e.checked=g.vals[id];else if(e.value!==g.vals[id])e.value=g.vals[id]});
+  if(g.focus){const e=document.getElementById(g.focus);if(e&&e.focus){e.focus();try{if(g.start!=null)e.setSelectionRange(g.start,g.end)}catch(x){}}}}
+function renderKeep(){const g=grabForm();render();restoreForm(g)}
+const newRow=type=>({id:gid(),type:type||'BUY',stock:'',qty:'',rate:''});
+const newBlock=type=>({id:gid(),name:'',self:false,rows:[newRow(type)]});
+function bkInit(){if(!BK)BK={date:'',blocks:[newBlock()]}}
+function bkFind(rid){for(const b of BK.blocks){const r=b.rows.find(x=>x.id===rid);if(r)return {b,r}}return {}}
+function bulkRowHtml(r){
+  return `<div class="bkrow"><div class="top"><div class="seg"><button class="${r.type==='BUY'?'on':''}" data-bkt="${r.id}:BUY">Buy</button><button class="${r.type==='SELL'?'on sell':''}" data-bkt="${r.id}:SELL">Sell</button></div><button class="ghost" data-bkx="${r.id}" aria-label="Remove this row">Remove</button></div>
+    <input id="bks-${r.id}" data-sugg="stock" data-bk="stock" data-rid="${r.id}" autocomplete="off" autocapitalize="characters" placeholder="Stock" value="${esc(r.stock)}">
+    <input id="bkq-${r.id}" data-bk="qty" data-rid="${r.id}" inputmode="decimal" placeholder="Qty" value="${esc(r.qty)}">
+    <input id="bkr-${r.id}" data-bk="rate" data-rid="${r.id}" inputmode="decimal" placeholder="@ Price" value="${esc(r.rate)}"></div>`}
+function bulkHtml(){
+  bkInit();
+  return `<div class="card"><div class="k">Choose Buy or Sell, then type the stock, quantity and price. A new row appears by itself after each stock. When a client is finished, tap Add next client.</div>
+    <div style="margin-top:8px"><div class="k">Date for all trades below</div><input id="bkDate" type="date" value="${esc(BK.date||td())}"></div></div>`+
+  BK.blocks.map((b,i)=>`<div class="card"><div class="hd"><b>Client ${i+1}</b>${BK.blocks.length>1?`<button class="ghost" data-bkrm="${b.id}">Remove client</button>`:''}</div>
+    <input id="bkn-${b.id}" data-sugg="client" data-bk="name" data-bid="${b.id}" autocomplete="off" placeholder="Client name" value="${esc(b.name)}" style="margin-top:8px">
+    <label class="k" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="bkself-${b.id}" data-bk="self" data-bid="${b.id}" style="width:auto"${b.self?' checked':''}><span>Self-bought / client request</span></label>
+    ${b.rows.map(bulkRowHtml).join('')}</div>`).join('')+
+  `<div class="mbtns row"><button class="alt" data-bkc="1">+ Add next client</button><button id="bkSave">Save all trades</button></div><div class="msg" id="bkmsg"></div>`}
+function renderBulkBox(){
+  const box=$('bulkBox');if(!box)return;
+  const a=document.activeElement,id=a&&a.id,st=a&&a.selectionStart,en=a&&a.selectionEnd;
+  box.innerHTML=bulkHtml();
+  if(id){const e=document.getElementById(id);if(e&&e.focus){e.focus();try{if(st!=null)e.setSelectionRange(st,en)}catch(x){}}}}
+function bkSync(t){
+  const k=t&&t.dataset&&t.dataset.bk;if(!k)return false;bkInit();
+  if(t.dataset.bid){const b=BK.blocks.find(x=>x.id===t.dataset.bid);if(b){if(k==='name')b.name=t.value;else if(k==='self')b.self=!!t.checked}return true}
+  if(t.dataset.rid){const f=bkFind(t.dataset.rid);if(f.r){f.r[k]=t.value;
+    const last=f.b.rows[f.b.rows.length-1],ok=String(f.r.stock).trim()&&parseFloat(String(f.r.qty).replace(/,/g,''))>0&&f.r.rate!==''&&!isNaN(parseFloat(String(f.r.rate).replace(/,/g,'')));
+    if(f.r===last&&ok){f.b.rows.push(newRow(f.r.type));renderBulkBox()}}}
+  return true}
+async function bulkSave(){
+  const say=m=>{const e=$('bkmsg');if(e)e.textContent=m};
+  if(viewing&&RO)return;bkInit();
+  const date=($('bkDate')||{}).value||BK.date||td();BK.date=date;
+  const blocks=[];
+  for(let i=0;i<BK.blocks.length;i++){
+    const b=BK.blocks[i],rows=b.rows.filter(r=>String(r.stock).trim()||r.qty!==''||r.rate!=='');
+    if(!rows.length&&!b.name.trim())continue;
+    if(!b.name.trim())return say('Client '+(i+1)+': type the client name.');
+    if(!rows.length)return say(b.name.trim()+': add at least one stock.');
+    for(let j=0;j<rows.length;j++){
+      const r=rows[j],q=parseFloat(String(r.qty).replace(/,/g,'')),pr=parseFloat(String(r.rate).replace(/,/g,''));
+      if(!String(r.stock).trim())return say(b.name.trim()+', row '+(j+1)+': type the stock name.');
+      if(!(q>0))return say(b.name.trim()+', row '+(j+1)+': enter a quantity above 0.');
+      if(isNaN(pr)||pr<0)return say(b.name.trim()+', row '+(j+1)+': enter the price.');
+    }
+    blocks.push({b,rows});
+  }
+  if(!blocks.length)return say('Add at least one trade.');
+  const newAccs=[],ids=[];
+  const getNew=nm=>{const k=norm(nm);let a=newAccs.find(x=>norm(x.name)===k);if(!a){a={id:gid(),name:nm.trim()};newAccs.push(a)}return a.id};
+  for(const {b} of blocks){
+    const m=matchClient({name:b.name.trim(),user:''});
+    if(m.kind==='auto'){ids.push(m.a.id);continue}
+    if(m.kind==='ask'){
+      const ans=await ask(`<h3>Is this the same client?</h3><div class="mrow"><div class="k">You typed</div><b>${esc(b.name.trim())}</b></div><div class="mrow"><div class="k">Closest client in your sheet · ${Math.round(m.score*100)}% match</div><b>${esc(m.a.name)}</b></div>`,
+        [{t:"Yes, use "+esc(m.a.name),v:'yes'},{t:'No, add as a new client',v:'new',cls:'alt'},{t:'Cancel',v:'cancel',cls:'ghost'}]);
+      if(ans==='cancel')return;
+      ids.push(ans==='yes'?m.a.id:getNew(b.name));continue}
+    ids.push(getNew(b.name));
+  }
+  const adds=[];
+  blocks.forEach(({b,rows},i)=>rows.forEach(r=>adds.push({id:gid(),acc:ids[i],stock:String(r.stock).trim().toUpperCase(),type:r.type,qty:parseFloat(String(r.qty).replace(/,/g,'')),rate:parseFloat(String(r.rate).replace(/,/g,'')),d:date,...(b.self?{src:'SELF'}:{})})));
+  const next=S.tx.slice();
+  for(const t of adds){next.push(t);if(!valid(next)){const nm=(S.accounts.concat(newAccs).find(x=>x.id===t.acc)||{}).name;return say(nm+': the sell of '+t.stock+' is larger than the shares held. Nothing was saved.')}}
+  S.accounts=S.accounts.concat(newAccs);S.tx=next;persist();
+  const d=BK.date;BK=null;bkInit();BK.date=d;
+  render();status('Added '+adds.length+' trade'+(adds.length===1?'':'s')+' for '+blocks.length+' client'+(blocks.length===1?'':'s'));
+}
 function applyShared(t){
   if(!t)return;t.prices=t.prices||{};t.priceT=t.priceT||{};
   for(const k in SHARED){const e=SHARED[k];if(e&&typeof e.p==='number'&&(e.t||0)>(t.priceT[k]||0)){t.prices[k]=e.p;t.priceT[k]=e.t}}}
@@ -508,7 +652,7 @@ async function editHolding(code){
   let v={name:stock,qty:Math.round(qty0*1e6)/1e6,avg:Math.round(avg0*1e4)/1e4},msg='';
   for(;;){
     const ans=await ask(`<h3>Edit holding</h3><div class="msg" style="margin:0 0 6px">${esc(msg)}</div><div class="form">
-      <div class="full"><div class="k">Stock name</div><input id="ehName" value="${esc(v.name)}" autocapitalize="characters"></div>
+      <div class="full"><div class="k">Stock name</div><input id="ehName" data-sugg="stock" autocomplete="off" value="${esc(v.name)}" autocapitalize="characters"></div>
       <div><div class="k">Quantity</div><input id="ehQty" inputmode="decimal" value="${esc(v.qty)}"></div>
       <div><div class="k">Average price</div><input id="ehAvg" inputmode="decimal" value="${esc(v.avg)}"></div>
       <div class="k full">Changing the quantity or average price records an adjustment in the history and does not touch cash. Changing the name renames every trade of this stock for this client.</div></div>`,
@@ -533,7 +677,7 @@ async function editTrade(id){
     const accOpts=S.accounts.map(a=>`<option value="${a.id}" ${a.id===v.acc?'selected':''}>${esc(a.name)}</option>`).join('');
     const ans=await ask(`<h3>Edit trade</h3><div class="msg" style="margin:0 0 6px">${esc(msg)}</div><div class="form">
       <div class="full"><div class="k">Client</div><select id="etAcc">${accOpts}</select></div>
-      <div><div class="k">Stock</div><input id="etStock" value="${esc(v.stock)}" autocapitalize="characters"></div>
+      <div><div class="k">Stock</div><input id="etStock" data-sugg="stock" autocomplete="off" value="${esc(v.stock)}" autocapitalize="characters"></div>
       <div><div class="k">Type</div><select id="etType"><option ${v.type==='BUY'?'selected':''}>BUY</option><option ${v.type==='SELL'?'selected':''}>SELL</option><option value="SET" ${v.type==='SET'?'selected':''}>ADJUST</option></select></div>
       <div><div class="k">Quantity</div><input id="etQty" inputmode="decimal" value="${esc(v.qty)}"></div>
       <div><div class="k">Rate</div><input id="etRate" inputmode="decimal" value="${esc(v.rate)}"></div>
@@ -571,7 +715,7 @@ function onOwn(snap){
   if(snap.exists){const d=snap.data()||{};let r=null;try{r=JSON.parse(d.json)}catch(e){}
     ME.first=d.first||ME.first||Date.now();
     if(r){r.cash=r.cash||[];const tgt=viewing?MINE:S;
-      if(r.ts>(tgt.ts||0)){if(viewing)MINE=r;else{S=r;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}render()}}
+      if(r.ts>(tgt.ts||0)){if(viewing)MINE=r;else{S=r;seedKnown();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}renderKeep()}}
       else if((tgt.ts||0)>r.ts&&!snap.metadata.hasPendingWrites&&!viewing)push()}
     if(!ME.pinged){ME.pinged=true;OWNREF.update({last:Date.now()}).catch(()=>{})}
   }else{ME.first=Date.now();OWNREF.set({json:JSON.stringify(viewing?MINE:S),first:ME.first,last:Date.now()}).catch(()=>{})}
@@ -580,23 +724,24 @@ function onOwn(snap){
 function loadLocal(){
   KEY='stockledger.fb.'+ME.uid;S={accounts:[],tx:[],prices:{},cash:[],ts:0};
   try{const l=JSON.parse(localStorage.getItem(KEY)||'null');if(l&&l.accounts)S=l}catch(e){}
-  S.cash=S.cash||[];view='all';hist='';
+  S.cash=S.cash||[];view='all';hist='';seedKnown();
 }
 function startData(){
   OWNREF=FB.fs.doc('team/'+ME.uid);ME.pinged=false;
   DATA_UNSUBS.push(OWNREF.onSnapshot(onOwn,()=>status('Offline: saved on this device')));
-  DATA_UNSUBS.push(FB.fs.doc('prices/current').onSnapshot(sn=>{SHARED=(sn.exists&&(sn.data()||{}).map)||{};render()},()=>{}));
+  DATA_UNSUBS.push(FB.fs.doc('prices/current').onSnapshot(sn=>{SHARED=(sn.exists&&(sn.data()||{}).map)||{};renderKeep()},()=>{}));
+  DATA_UNSUBS.push(FB.fs.doc('stocks/list').onSnapshot(sn=>{STOCKLIST=(sn.exists&&Array.isArray((sn.data()||{}).names))?sn.data().names:[];renderKeep()},()=>{}));
   if(ME.head){
     DATA_UNSUBS.push(FB.fs.collection('members').onSnapshot(qs=>{
       ROSTER=qs.docs.map(d=>{const x=d.data()||{};return {uid:d.id,email:x.email||'',name:x.name||'',role:x.role||'pending',first:x.first||0,last:x.last||0}});
-      if(!viewing)render()},()=>{}));
+      if(!viewing)renderKeep()},()=>{}));
     DATA_UNSUBS.push(FB.fs.collection('team').onSnapshot(qs=>{
       TEAMCNT={};qs.docs.forEach(d=>{let a=0,t=0;try{const j=JSON.parse((d.data()||{}).json);a=(j.accounts||[]).length;t=(j.tx||[]).length}catch(e){}TEAMCNT[d.id]={a,t}});
-      if(view==='team'&&!viewing)render()},()=>{}));
+      if(view==='team'&&!viewing)renderKeep()},()=>{}));
   }
 }
 function stopData(){
-  DATA_UNSUBS.forEach(u=>{try{u()}catch(e){}});DATA_UNSUBS=[];OWNREF=null;ROSTER=[];TEAMCNT={};SHARED={};
+  DATA_UNSUBS.forEach(u=>{try{u()}catch(e){}});DATA_UNSUBS=[];OWNREF=null;ROSTER=[];TEAMCNT={};SHARED={};STOCKLIST=[];
   if(viewing){try{viewing.unsub&&viewing.unsub()}catch(e){}viewing=null;RO=false;MINE=null}
 }
 function onMember(snap){
@@ -668,10 +813,22 @@ async function startFirebase(){
   }catch(e){AUTH.state='error';AUTH.msg='Could not load Firebase. Check your internet connection and the settings at the top of this file. ('+(e.message||e)+')';render()}
 }
 document.addEventListener('click',e=>{
-  const c=e.target.closest('[data-v],#addAcc,#accSave,#fAdd,#bAdd,#pAdd,#pasteGo,#cAdd,#exAll,#coAll,[data-sec],[data-hist],[data-open],[data-act],[data-auth],[data-eh],[data-etx],[data-ecash],[data-dism],[data-dismc],[data-role],[data-edit],[data-back],[data-clr],[data-delc],[data-del],[data-delacc]');
+  try{if(SUG.inp&&!(e.target.closest&&e.target.closest('#sugg'))&&e.target!==SUG.inp)hideSugg()}catch(x){}
+  const c=e.target.closest('[data-bkt],[data-bkx],[data-bkrm],[data-bkc],#bkSave,#bulkGo,[data-pick],#stkAdd,#stkImport,[data-stkedit],[data-stkdel],[data-v],#addAcc,#accSave,#fAdd,#bAdd,#pAdd,#pasteGo,#cAdd,#exAll,#coAll,[data-sec],[data-hist],[data-open],[data-act],[data-auth],[data-eh],[data-etx],[data-ecash],[data-dism],[data-dismc],[data-role],[data-edit],[data-back],[data-clr],[data-delc],[data-del],[data-delacc]');
   if(!c)return;
   if(RO&&!(c.dataset.v||c.dataset.sec||c.dataset.hist||c.dataset.edit||c.dataset.back||c.dataset.auth||c.id==='exAll'||c.id==='coAll'))return;
-  if(c.dataset.open){enterView(c.dataset.open)}
+  if(c.dataset.pick){const inp=SUG.inp;if(inp){inp.value=c.dataset.pick;const wasBulk=bkSync(inp);hideSugg();if(wasBulk&&inp.dataset.rid){const q=document.getElementById('bkq-'+inp.dataset.rid);if(q&&q.focus)q.focus()}}}
+  else if(c.dataset.bkt){bkInit();const [rid,ty]=c.dataset.bkt.split(':'),f=bkFind(rid);if(f.r){f.r.type=ty;renderBulkBox()}}
+  else if(c.dataset.bkx){bkInit();const f=bkFind(c.dataset.bkx);if(f.b){if(f.b.rows.length>1)f.b.rows=f.b.rows.filter(r=>r.id!==c.dataset.bkx);else{f.r.stock='';f.r.qty='';f.r.rate=''}renderBulkBox()}}
+  else if(c.dataset.bkrm){bkInit();if(BK.blocks.length>1){BK.blocks=BK.blocks.filter(b=>b.id!==c.dataset.bkrm);renderBulkBox()}}
+  else if(c.dataset.bkc){bkInit();const nb=newBlock(BK.blocks[BK.blocks.length-1].rows[0].type);BK.blocks.push(nb);renderBulkBox();const n=document.getElementById('bkn-'+nb.id);if(n&&n.focus)n.focus()}
+  else if(c.id==='bkSave'){bulkSave()}
+  else if(c.id==='bulkGo'){OPEN.bulk=true;saveOpen();render();const b=$('bulkBox');if(b&&b.scrollIntoView)b.scrollIntoView({behavior:'smooth',block:'start'})}
+  else if(c.id==='stkAdd'){stkAdd()}
+  else if(c.id==='stkImport'){stkImport()}
+  else if(c.dataset.stkedit){stkEdit(c.dataset.stkedit)}
+  else if(c.dataset.stkdel){stkDel(c.dataset.stkdel)}
+  else if(c.dataset.open){enterView(c.dataset.open)}
   else if(c.dataset.act){memberAct(c.dataset.act,c.dataset.uid)}
   else if(c.dataset.auth){doAuth(c.dataset.auth)}
   else if(c.dataset.eh){editHolding(c.dataset.eh)}
@@ -736,6 +893,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
   if(RO)return;
+  if(e.target&&e.target.id==='bkDate'){bkInit();BK.date=e.target.value;return}
   if(e.target.id==='alertPct'||e.target.id==='closeDay'||e.target.id==='closeTol'){
     const id=e.target.id,v=parseFloat(String(e.target.value).replace(',','.')),key=id==='alertPct'?'alertPct':id==='closeDay'?'closeDay':'closeTol',ok=id==='closeTol'?v>=0:v>0;
     if(!isNaN(v)&&ok){S[key]=v;persist();render()}else e.target.value=id==='alertPct'?thr():id==='closeDay'?cday():ctol();return}
@@ -747,6 +905,8 @@ document.addEventListener('change',e=>{
   setPrices({[i.dataset.stock]:v});render();
 });
 
+document.addEventListener('input',e=>{const t=e.target;if(!t||!t.dataset)return;if(RO)return;bkSync(t);if(t.dataset.sugg!==undefined)showSugg(t)});
+document.addEventListener('focusin',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.sugg!==undefined&&!RO)showSugg(t)});
 render();status('');
 startFirebase();
 </script>
